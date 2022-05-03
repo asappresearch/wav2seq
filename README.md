@@ -5,7 +5,17 @@
 
 # Usage
 ## Dependency
-The code is tested with fairseq commit bba000d8.
+The code is tested with fairseq commit bba000d.
+```
+torch==1.9.0+cu111
+torchaudio==0.9.0
+tqdm==4.62.3
+hydra-core==1.0.7
+omegaconf==2.0.6
+einops==0.3.0
+fire==0.4.0
+fairseq==1.0.0a0+bba000d
+```
 
 ## Installation
 ```
@@ -48,3 +58,4 @@ bash scripts/pl/create-hubert-pseudo-language.sh labels/hubert_base-l9-k2s2-fp16
 ## Fine-tuning Wav2Seq
 
 # Pre-trained Models
+Our pretrained models will be released.
