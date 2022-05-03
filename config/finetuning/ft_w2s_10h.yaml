@@ -1,0 +1,114 @@
+# @package _group_
+
+common:
+  fp16: true
+  log_format: json
+  log_interval: 100
+
+checkpoint:
+  save_interval: 1000
+  save_interval_updates: 1000
+  keep_interval_updates: 1
+  no_epoch_checkpoints: true
+  best_checkpoint_metric: accuracy
+  maximize_best_checkpoint_metric: true
+
+task:
+  _name: audio_pretraining_pseudo_language
+  data: ???
+  normalize: false
+  labels: bpe
+  autoregressive: true
+  # eval_wer: true
+  # eval_wer_post_process: sentencepiece
+
+dataset:
+  num_workers: 6
+  max_tokens: 3200000
+  skip_invalid_size_inputs_valid_test: true
+  validate_after_updates: 0
+  validate_interval: 1000
+  valid_subset: dev_other
+
+distributed_training:
+  ddp_backend: legacy_ddp
+  distributed_world_size: 1
+
+criterion:
+  _name: label_smoothed_cross_entropy
+  label_smoothing: 0.1
+  # sentence_avg: true
+  # zero_infinity: true
+  # ctc_weight: 0.5
+  report_accuracy: true
+  # post_process: sentencepiece
+
+optimization:
+  max_update: 80000
+  lr: [5e-5]
+  sentence_avg: true
+  update_freq: [1]
+
+optimizer:
+  _name: adam
+  adam_betas: (0.9,0.98)
+  adam_eps: 1e-08
+
+lr_scheduler:
+  _name: tri_stage
+  phase_ratio: [0.1, 0.0, 0.9]
+  # warmup_steps: 8000
+  # hold_steps: 0
+  # decay_steps: 72000
+  final_lr_scale: 0.05
+
+model:
+  _name: wav2vec_seq2seq_v2
+  w2v_path: ""
+  apply_mask: true
+  mask_prob: 0.65
+  mask_length: 10
+  mask_channel_prob: 0.5
+  mask_channel_length: 64
+  layerdrop: 0.1
+  activation_dropout: 0.1
+  feature_grad_mult: 0.1
+  freeze_finetune_updates: 0
+  encoder_embed_dim: 256
+  decoder_embed_dim: 256
+  decoder_ffn_embed_dim: 1024
+  decoder_layers: 6
+  decoder_layerdrop: 0.0
+  decoder_attention_heads: 4
+  decoder_dropout: 0.1
+  decoder_attention_dropout: 0.1
+  decoder_activation_dropout: 0.0
+  share_decoder_input_output_embed: true
+
+  w2v_args:
+    task:
+      # _name: audio_pretraining
+      _name: audio_pretraining_pseudo_language
+      data: ???
+      max_sample_size: 250000
+      min_sample_size: 32000
+      normalize: false
+      fbank_dim: 0
+      mfcc_dim: 0
+
+    model:
+      _name: wav2vec2
+      quantize_targets: true
+      final_dim: 256
+      encoder_layerdrop: 0.05
+      dropout_input: 0.1
+      dropout_features: 0.1
+      feature_grad_mult: 0.1
+      conv_pos: 128
+      encoder_embed_dim: 256
+      encoder_attention_heads: 4
+      encoder_ffn_embed_dim: 1024
+      encoder_layers: 6
+      conv_feature_layers: '[(128, 10, 5)] + [(256, 3, 2)] * 2 + [(512, 3, 2)] * 2 + [(1024, 2, 2)] * 2'
+
+
