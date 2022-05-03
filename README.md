@@ -54,6 +54,9 @@ bash scripts/pl/create-hubert-pseudo-language.sh labels/hubert_base-l9-k2s2-fp16
 
 
 ## Pre-training Wav2Seq
+```sh
+bash scripts/wav2seq-pt.sh wav2seq-hubert-base-ls960
+```
 
 ## Fine-tuning Wav2Seq
 
