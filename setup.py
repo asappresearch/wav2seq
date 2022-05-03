@@ -21,6 +21,7 @@ setup(
                       'tqdm>=4.31.1',
                       'matplotlib',
                       'einops',
+                      'fire',
                       ],
     entry_points={
     },
