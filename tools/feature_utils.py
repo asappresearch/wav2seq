@@ -27,8 +27,7 @@ def get_shard_range(tot, nshard, rank):
     end = round(tot / nshard * (rank + 1))
     assert start < end, f"start={start}, end={end}"
     logger.info(
-        f"rank {rank} of {nshard}, process {end-start} "
-        f"({start}-{end}) out of {tot}"
+        f"rank {rank} of {nshard}, process {end-start} " f"({start}-{end}) out of {tot}"
     )
     return start, end
 
@@ -39,10 +38,12 @@ def get_path_iterator(tsv, nshard, rank):
         lines = [line.rstrip() for line in f]
         start, end = get_shard_range(len(lines), nshard, rank)
         lines = lines[start:end]
+
         def iterate():
             for line in lines:
                 subpath, nsample = line.split("\t")
                 yield f"{root}/{subpath}", int(nsample)
+
     return iterate, len(lines)
 
 
@@ -66,10 +67,18 @@ def dump_feature(rank, reader, manifest, nshard, feat_dir):
             leng_f.write(f"{len(feat)}\n")
     logger.info("finished successfully")
 
-    
 
-def dump_cluster(rank, reader, apply_kmeans, manifest,
-                 nshard, lab_dir, output_suffix='km', pl_converter=None, use_tqdm=True):
+def dump_cluster(
+    rank,
+    reader,
+    apply_kmeans,
+    manifest,
+    nshard,
+    lab_dir,
+    output_suffix="km",
+    pl_converter=None,
+    use_tqdm=True,
+):
     generator, num = get_path_iterator(manifest, nshard, rank)
     iterator = generator()
 

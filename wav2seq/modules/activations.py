@@ -13,39 +13,43 @@ from fairseq.modules.gelu import gelu, gelu_accurate
 def swish(x):
     return x * torch.sigmoid(x)
 
+
 @torch.jit.script
 def mish(x):
     return x * torch.tanh(F.softplus(x))
+
 
 class Swish(nn.Module):
     def forward(self, x):
         return swish(x)
 
+
 class Mish(nn.Module):
     def forward(self, x):
         return mish(x)
 
+
 act_func_dict = {
-    'sigmoid': torch.sigmoid,
-    'tanh': torch.tanh,
-    'elu': F.elu,
-    'relu': F.relu,
-    'gelu': gelu,
-    'gelu_accurate': gelu_accurate,
-    'glu': F.glu,
-    'swish': F.silu,
-    'mish': mish,
-    'none': lambda x: x,
-    'identity': lambda x: x,
+    "sigmoid": torch.sigmoid,
+    "tanh": torch.tanh,
+    "elu": F.elu,
+    "relu": F.relu,
+    "gelu": gelu,
+    "gelu_accurate": gelu_accurate,
+    "glu": F.glu,
+    "swish": F.silu,
+    "mish": mish,
+    "none": lambda x: x,
+    "identity": lambda x: x,
     None: lambda x: x,
 }
 
 act_module_dict = {
-    'relu': nn.ReLU,
-    'gelu': nn.GELU,
-    'mish': Mish,
-    'swish': nn.SiLU,
-    'silu': nn.SiLU,
-    'tanh': nn.Tanh,
-    'hardswish': nn.Hardswish,
+    "relu": nn.ReLU,
+    "gelu": nn.GELU,
+    "mish": Mish,
+    "swish": nn.SiLU,
+    "silu": nn.SiLU,
+    "tanh": nn.Tanh,
+    "hardswish": nn.Hardswish,
 }

@@ -51,9 +51,9 @@ class FileAudioDatasetV2(RawAudioDataset):
         skipped = 0
         with open(manifest_path, "r") as f:
             first_line = f.readline().strip()
-            self.segmented = first_line == 'segmented'
+            self.segmented = first_line == "segmented"
             if self.segmented:
-                self.root_dir = ''
+                self.root_dir = ""
                 for i, line in enumerate(f):
                     sid, filename, start, end = line.split()
                     start, end = float(start), float(end)
@@ -79,10 +79,12 @@ class FileAudioDatasetV2(RawAudioDataset):
     def __getitem__(self, index):
         if self.segmented:
             import librosa
+
             sid, fname, start, end = self.fnames[index]
             try:
                 wav, curr_sample_rate = librosa.load(
-                    fname, sr=self.sample_rate, offset=start, duration=end - start)
+                    fname, sr=self.sample_rate, offset=start, duration=end - start
+                )
             except:
                 duration = librosa.get_duration(filename=fname)
                 print(fname, start, end, duration)
@@ -91,20 +93,23 @@ class FileAudioDatasetV2(RawAudioDataset):
             fname = os.path.join(self.root_dir, self.fnames[index])
             if self.use_librosa:
                 import librosa
+
                 wav, curr_sample_rate = librosa.load(fname, sr=self.sample_rate)
             else:
                 import soundfile as sf
+
                 wav, curr_sample_rate = sf.read(fname)
         feats = torch.from_numpy(wav).float()
-        
-        out = {'id': index}
+
+        out = {"id": index}
         feats = self.postprocess(feats, curr_sample_rate)
-        out['source'] = feats
+        out["source"] = feats
         return out
 
 
 class FileAudioFeatDataset(FileAudioDatasetV2):
     """Extend FileAutioDataset to generate filter bank or MFCC features"""
+
     def __init__(
         self,
         manifest_path,
@@ -118,8 +123,8 @@ class FileAudioFeatDataset(FileAudioDatasetV2):
         spec_dim=0,
         fbank_dim=0,
         mfcc_dim=0,
-        frame_length=25.,
-        frame_shift=10.,
+        frame_length=25.0,
+        frame_shift=10.0,
     ):
         super().__init__(
             manifest_path=manifest_path,
@@ -177,26 +182,43 @@ class FileAudioFeatDataset(FileAudioDatasetV2):
         if self.spec_dim > 0:
             if self.spec_func is None:
                 self.spec_func = torchaudio.transforms.Spectrogram(
-                    n_fft=(self.spec_dim - 1)*2,
+                    n_fft=(self.spec_dim - 1) * 2,
                     win_length=self.frame_length,
                     hop_length=self.frame_shift,
                 )
-            spec = torch.stack([self.spec_func(feats.view(1, -1))
-                               for feats in collated_sources], dim=0)
+            spec = torch.stack(
+                [self.spec_func(feats.view(1, -1)) for feats in collated_sources], dim=0
+            )
             audio_feats.append(spec)
         if self.fbank_dim > 0:
-            fbank = torch.stack([
-                torchaudio.compliance.kaldi.fbank(
-                    feats.view(1, -1), num_mel_bins=self.fbank_dim, sample_frequency=self.sample_rate,
-                    frame_length=self.frame_length, frame_shift=self.frame_shift)
-                for feats in collated_sources], dim=0)
+            fbank = torch.stack(
+                [
+                    torchaudio.compliance.kaldi.fbank(
+                        feats.view(1, -1),
+                        num_mel_bins=self.fbank_dim,
+                        sample_frequency=self.sample_rate,
+                        frame_length=self.frame_length,
+                        frame_shift=self.frame_shift,
+                    )
+                    for feats in collated_sources
+                ],
+                dim=0,
+            )
             audio_feats.append(fbank)
         if self.mfcc_dim > 0:
-            mfcc = torch.stack([
-                torchaudio.compliance.kaldi.mfcc(
-                    feats.view(1, -1), num_ceps=self.mfcc_dim, sample_frequency=self.sample_rate,
-                    frame_length=self.frame_length, frame_shift=self.frame_shift)
-                for feats in collated_sources], dim=0)
+            mfcc = torch.stack(
+                [
+                    torchaudio.compliance.kaldi.mfcc(
+                        feats.view(1, -1),
+                        num_ceps=self.mfcc_dim,
+                        sample_frequency=self.sample_rate,
+                        frame_length=self.frame_length,
+                        frame_shift=self.frame_shift,
+                    )
+                    for feats in collated_sources
+                ],
+                dim=0,
+            )
             audio_feats.append(mfcc)
         if len(audio_feats) == 0:
             audio_feats = None
@@ -206,7 +228,7 @@ class FileAudioFeatDataset(FileAudioDatasetV2):
             audio_feats = torch.cat(audio_feats, dim=-1)
 
         if audio_feats is not None:
-            input['audio_feats'] = audio_feats
+            input["audio_feats"] = audio_feats
 
         return {"id": torch.LongTensor([s["id"] for s in samples]), "net_input": input}
 
@@ -224,8 +246,8 @@ class NCropFileAudioFeatDataset(FileAudioFeatDataset):
         use_librosa=False,
         fbank_dim=0,
         mfcc_dim=0,
-        frame_length=25.,
-        frame_shift=10.,
+        frame_length=25.0,
+        frame_shift=10.0,
         n_crops=1,
         clean_first=True,
         crop_same_position=True,
@@ -260,7 +282,7 @@ class NCropFileAudioFeatDataset(FileAudioFeatDataset):
         self.gain_range = gain_range
         self.reverb_prob = reverb_prob
         torchaudio.sox_effects.init_sox_effects()
-        
+
     def __getitem__(self, index):
         fname = os.path.join(self.root_dir, self.fnames[index])
         # if self.use_librosa:
@@ -284,22 +306,26 @@ class NCropFileAudioFeatDataset(FileAudioFeatDataset):
             for _ in range(start, self.n_crops):
                 effects = []
                 # change volumn
-                if self.gain_range > 0 and np.random.uniform(0., 1.) < self.gain_prob:
+                if self.gain_range > 0 and np.random.uniform(0.0, 1.0) < self.gain_prob:
                     gain = np.random.uniform(-self.gain_range, self.gain_range)
-                    effects.append(['gain', f'{gain}'])
+                    effects.append(["gain", f"{gain}"])
                 # change pitch
-                if self.pitch_range > 0 and np.random.uniform(0., 1.) < self.pitch_prob:
+                if (
+                    self.pitch_range > 0
+                    and np.random.uniform(0.0, 1.0) < self.pitch_prob
+                ):
                     pitch = np.random.uniform(-self.pitch_range, self.pitch_range)
-                    effects.append(['pitch', f'{pitch}'])
+                    effects.append(["pitch", f"{pitch}"])
                 # add revert or not
-                if np.random.uniform(0., 1.) < self.reverb_prob:
-                    effects.append(['reverb'])
-                effects.append(['rate', f'{self.sample_rate}'])
+                if np.random.uniform(0.0, 1.0) < self.reverb_prob:
+                    effects.append(["reverb"])
+                effects.append(["rate", f"{self.sample_rate}"])
                 x, curr_sample_rate = torchaudio.sox_effects.apply_effects_tensor(
-                    feats, curr_sample_rate, effects, channels_first=True)
+                    feats, curr_sample_rate, effects, channels_first=True
+                )
                 all_crops.append(x)
-        
-        out = {'id': index}
+
+        out = {"id": index}
         # if self.fbank_dim > 0:
         #     out['fbank'] = torchaudio.compliance.kaldi.fbank(
         #         feats.view(1, -1), num_mel_bins=self.fbank_dim, sample_frequency=curr_sample_rate,
@@ -308,7 +334,7 @@ class NCropFileAudioFeatDataset(FileAudioFeatDataset):
         #     out['mfcc'] = torchaudio.compliance.kaldi.mfcc(
         #         feats.view(1, -1), num_ceps=self.mfcc_dim, sample_frequency=curr_sample_rate,
         #         frame_length=self.frame_length, frame_shift=self.frame_shift)
-        out['source'] = all_crops
+        out["source"] = all_crops
         return out
 
     def collater(self, samples):
@@ -316,7 +342,9 @@ class NCropFileAudioFeatDataset(FileAudioFeatDataset):
         if len(samples) == 0:
             return {}
 
-        sources = [s["source"][i].view(-1) for i in range(self.n_crops) for s in samples]
+        sources = [
+            s["source"][i].view(-1) for i in range(self.n_crops) for s in samples
+        ]
         sizes = [len(s) for s in sources]
         batch_size = len(sources) // self.n_crops
 
@@ -346,15 +374,19 @@ class NCropFileAudioFeatDataset(FileAudioFeatDataset):
                 start, end = crop_ranges[i % batch_size]
                 collated_sources[i] = source[start:end]
             else:
-                collated_sources[i], crop_range = self.crop_to_max_size(source, target_size, True)
+                collated_sources[i], crop_range = self.crop_to_max_size(
+                    source, target_size, True
+                )
                 crop_ranges[i] = crop_range
 
-        if self.mix_thres > 0.:
-            m = np.random.uniform(0., self.mix_thres)
+        if self.mix_thres > 0.0:
+            m = np.random.uniform(0.0, self.mix_thres)
             perm_indices = np.random.permutation(collated_sources.size(0))
             if self.clean_first:
                 perm_indices[:batch_size] = np.arange(batch_size)
-            collated_sources = collated_sources * (1. - m) + collated_sources[perm_indices] * m
+            collated_sources = (
+                collated_sources * (1.0 - m) + collated_sources[perm_indices] * m
+            )
 
         input = {"source": collated_sources.view(self.n_crops, -1, target_size)}
         if self.pad:
@@ -362,18 +394,34 @@ class NCropFileAudioFeatDataset(FileAudioFeatDataset):
 
         audio_feats = []
         if self.fbank_dim > 0:
-            fbank = torch.stack([
-                torchaudio.compliance.kaldi.fbank(
-                    feats.view(1, -1), num_mel_bins=self.fbank_dim, sample_frequency=self.sample_rate,
-                    frame_length=self.frame_length, frame_shift=self.frame_shift)
-                for feats in collated_sources], dim=0)
+            fbank = torch.stack(
+                [
+                    torchaudio.compliance.kaldi.fbank(
+                        feats.view(1, -1),
+                        num_mel_bins=self.fbank_dim,
+                        sample_frequency=self.sample_rate,
+                        frame_length=self.frame_length,
+                        frame_shift=self.frame_shift,
+                    )
+                    for feats in collated_sources
+                ],
+                dim=0,
+            )
             audio_feats.append(fbank)
         if self.mfcc_dim > 0:
-            mfcc = torch.stack([
-                torchaudio.compliance.kaldi.mfcc(
-                    feats.view(1, -1), num_ceps=self.mfcc_dim, sample_frequency=self.sample_rate,
-                    frame_length=self.frame_length, frame_shift=self.frame_shift)
-                for feats in collated_sources], dim=0)
+            mfcc = torch.stack(
+                [
+                    torchaudio.compliance.kaldi.mfcc(
+                        feats.view(1, -1),
+                        num_ceps=self.mfcc_dim,
+                        sample_frequency=self.sample_rate,
+                        frame_length=self.frame_length,
+                        frame_shift=self.frame_shift,
+                    )
+                    for feats in collated_sources
+                ],
+                dim=0,
+            )
             audio_feats.append(mfcc)
 
         if len(audio_feats) == 0:
@@ -383,7 +431,7 @@ class NCropFileAudioFeatDataset(FileAudioFeatDataset):
         else:
             audio_feats = torch.cat(audio_feats, dim=-1)
         if audio_feats:
-            input['audio_feats'] = audio_feats
+            input["audio_feats"] = audio_feats
 
         return {"id": torch.LongTensor([s["id"] for s in samples]), "net_input": input}
 
@@ -403,6 +451,7 @@ class NCropFileAudioFeatDataset(FileAudioFeatDataset):
 
 class FileAudioFeatClassificationDataset(RawAudioDataset):
     """Extend FileAudioFeatDataset to have classification labels"""
+
     def __init__(
         self,
         manifest_path,
@@ -415,8 +464,8 @@ class FileAudioFeatClassificationDataset(RawAudioDataset):
         use_librosa=False,
         fbank_dim=0,
         mfcc_dim=0,
-        frame_length=25.,
-        frame_shift=10.,
+        frame_length=25.0,
+        frame_shift=10.0,
     ):
         super().__init__(
             sample_rate=sample_rate,
@@ -440,7 +489,7 @@ class FileAudioFeatClassificationDataset(RawAudioDataset):
         with open(manifest_path, "r") as f:
             first_line = f.readline().strip()
             self.manifest_type, self.root_dir = first_line.split()
-            assert self.manifest_type == 'cls'
+            assert self.manifest_type == "cls"
             for line in f:
                 items = line.strip().split("\t")
                 assert len(items) == 4, line
@@ -461,18 +510,19 @@ class FileAudioFeatClassificationDataset(RawAudioDataset):
         fname = os.path.join(self.root_dir, self.fnames[index])
         # if self.use_librosa:
         start, end = self.spans[index]
-        wav, curr_sample_rate = librosa.load(fname, sr=self.sample_rate,
-                                             offset=start, duration=end - start)
+        wav, curr_sample_rate = librosa.load(
+            fname, sr=self.sample_rate, offset=start, duration=end - start
+        )
         # else:
         #     import soundfile as sf
         #     wav, curr_sample_rate = sf.read(fname)
         assert curr_sample_rate == self.sample_rate, curr_sample_rate
         feats = torch.from_numpy(wav).float()
         # crop or pad
-        
-        out = {'id': index, 'target': self.labels[index]}
+
+        out = {"id": index, "target": self.labels[index]}
         feats = self.postprocess(feats, curr_sample_rate)
-        out['source'] = feats
+        out["source"] = feats
         return out
 
     def collater(self, samples):
@@ -511,18 +561,34 @@ class FileAudioFeatClassificationDataset(RawAudioDataset):
 
         audio_feats = []
         if self.fbank_dim > 0:
-            fbank = torch.stack([
-                torchaudio.compliance.kaldi.fbank(
-                    feats.view(1, -1), num_mel_bins=self.fbank_dim, sample_frequency=self.sample_rate,
-                    frame_length=self.frame_length, frame_shift=self.frame_shift)
-                for feats in collated_sources], dim=0)
+            fbank = torch.stack(
+                [
+                    torchaudio.compliance.kaldi.fbank(
+                        feats.view(1, -1),
+                        num_mel_bins=self.fbank_dim,
+                        sample_frequency=self.sample_rate,
+                        frame_length=self.frame_length,
+                        frame_shift=self.frame_shift,
+                    )
+                    for feats in collated_sources
+                ],
+                dim=0,
+            )
             audio_feats.append(fbank)
         if self.mfcc_dim > 0:
-            mfcc = torch.stack([
-                torchaudio.compliance.kaldi.mfcc(
-                    feats.view(1, -1), num_ceps=self.mfcc_dim, sample_frequency=self.sample_rate,
-                    frame_length=self.frame_length, frame_shift=self.frame_shift)
-                for feats in collated_sources], dim=0)
+            mfcc = torch.stack(
+                [
+                    torchaudio.compliance.kaldi.mfcc(
+                        feats.view(1, -1),
+                        num_ceps=self.mfcc_dim,
+                        sample_frequency=self.sample_rate,
+                        frame_length=self.frame_length,
+                        frame_shift=self.frame_shift,
+                    )
+                    for feats in collated_sources
+                ],
+                dim=0,
+            )
             audio_feats.append(mfcc)
         if len(audio_feats) == 0:
             audio_feats = None
@@ -532,8 +598,10 @@ class FileAudioFeatClassificationDataset(RawAudioDataset):
             audio_feats = torch.cat(audio_feats, dim=-1)
 
         if audio_feats is not None:
-            input['audio_feats'] = audio_feats
+            input["audio_feats"] = audio_feats
 
-        return {"id": torch.LongTensor([s["id"] for s in samples]),
-                "target": torch.LongTensor([s["target"] for s in samples]),
-                "net_input": input}
+        return {
+            "id": torch.LongTensor([s["id"] for s in samples]),
+            "target": torch.LongTensor([s["target"] for s in samples]),
+            "net_input": input,
+        }

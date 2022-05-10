@@ -19,6 +19,7 @@ class CTCArgMaxDecoder(object):
 
         from fairseq import search
         from fairseq.data.dictionary import Dictionary
+
         assert isinstance(tgt_dict, Dictionary)
         self.search = search.BeamSearch(tgt_dict)
         self.normalize_scores = True
@@ -42,10 +43,10 @@ class CTCArgMaxDecoder(object):
     def get_emissions(self, models, encoder_input):
         """Run encoder and normalize emissions"""
         encoder_out = models[0](**encoder_input)
-        emissions = encoder_out['encoder_out'].transpose(0, 1).contiguous()
-        if encoder_out['padding_mask'] is not None:
-            emissions[encoder_out['padding_mask']] = 0.
-            emissions[encoder_out['padding_mask']][:, self.blank] = 1.
+        emissions = encoder_out["encoder_out"].transpose(0, 1).contiguous()
+        if encoder_out["padding_mask"] is not None:
+            emissions[encoder_out["padding_mask"]] = 0.0
+            emissions[encoder_out["padding_mask"]][:, self.blank] = 1.0
         return emissions
 
     def get_tokens(self, idxs):
@@ -61,10 +62,14 @@ class CTCArgMaxDecoder(object):
         toks = emissions.argmax(dim=-1)
         hypos = []
         for i in range(B):
-            hypos.append([{
-                'tokens': toks[i].unique_consecutive().cpu(),
-                'score': emissions[i].sum().item(),
-            }])
+            hypos.append(
+                [
+                    {
+                        "tokens": toks[i].unique_consecutive().cpu(),
+                        "score": emissions[i].sum().item(),
+                    }
+                ]
+            )
         return hypos
 
 
@@ -75,7 +80,9 @@ import numpy as np
 
 
 @torch.jit.script
-def forward_ctc_prefix(y: torch.Tensor, state: torch.Tensor, logp: torch.Tensor, blank: int, eos: int):
+def forward_ctc_prefix(
+    y: torch.Tensor, state: torch.Tensor, logp: torch.Tensor, blank: int, eos: int
+):
     """
     Partial CTC algorithm. PyTorch version of espnet.nets.ctc_prefix_score.CTCPrefixScore but 
 
@@ -92,11 +99,11 @@ def forward_ctc_prefix(y: torch.Tensor, state: torch.Tensor, logp: torch.Tensor,
     start = max(output_length, 1)
     T, V = logp.shape
     device = logp.device
-    
+
     # line 6
     state = torch.full((T, 2, V), -np.inf, device=device)
     if output_length == 0:
-        state[0, 0] = logp[0] # non-blank
+        state[0, 0] = logp[0]  # non-blank
 
     # line 10
     state_sum = state_prev.logsumexp(dim=1)
@@ -108,27 +115,39 @@ def forward_ctc_prefix(y: torch.Tensor, state: torch.Tensor, logp: torch.Tensor,
 
     # ling 13
     log_psi = log_phi.clone()
-    log_psi[start:] = log_phi[start-1:-1] + logp[start:]
-    
-    log_psi[start-1, :] = state[start-1, 0] # line 8
-    log_psi = log_psi[start-1:].logsumexp(dim=0)
+    log_psi[start:] = log_phi[start - 1 : -1] + logp[start:]
+
+    log_psi[start - 1, :] = state[start - 1, 0]  # line 8
+    log_psi = log_psi[start - 1 :].logsumexp(dim=0)
 
     # ignore generating blank
     log_psi[blank] = -np.inf
 
     # line 3-4
     log_psi[eos] = state_sum[-1]
-    
+
     # line 11-12
     for t in range(start, T):
-        state[t, 0] = torch.logsumexp(torch.stack([state[t - 1, 0], log_phi[t - 1]], dim=0), dim=0) + logp[t]
-        state[t, 1] = torch.logsumexp(torch.stack([state[t - 1, 0], state[t - 1, 1]], dim=0), dim=0) + logp[t, blank]
-    
+        state[t, 0] = (
+            torch.logsumexp(
+                torch.stack([state[t - 1, 0], log_phi[t - 1]], dim=0), dim=0
+            )
+            + logp[t]
+        )
+        state[t, 1] = (
+            torch.logsumexp(
+                torch.stack([state[t - 1, 0], state[t - 1, 1]], dim=0), dim=0
+            )
+            + logp[t, blank]
+        )
+
     return log_psi, state.permute(2, 0, 1)
 
 
 @torch.jit.script
-def batch_forward_ctc_prefix(y: torch.Tensor, state: torch.Tensor, logp: torch.Tensor, blank: int, eos: int):
+def batch_forward_ctc_prefix(
+    y: torch.Tensor, state: torch.Tensor, logp: torch.Tensor, blank: int, eos: int
+):
     # y: B x T_out
     # r: B x T x 2
     # logp: B x T x V
@@ -137,11 +156,11 @@ def batch_forward_ctc_prefix(y: torch.Tensor, state: torch.Tensor, logp: torch.T
     start = max(output_length, 1)
     B, T, V = logp.shape
     device = logp.device
-    
+
     # line 6
     state = torch.full((B, T, 2, V), -np.inf, device=device)
     if output_length == 0:
-        state[:, 0, 0] = logp[:, 0] # non-blank
+        state[:, 0, 0] = logp[:, 0]  # non-blank
 
     # line 10
     state_sum = state_prev.logsumexp(dim=2)
@@ -153,27 +172,36 @@ def batch_forward_ctc_prefix(y: torch.Tensor, state: torch.Tensor, logp: torch.T
 
     # ling 13
     log_psi = log_phi.clone()
-    log_psi[:, start:] = log_phi[:, start-1:-1] + logp[:, start:]
-    
-    log_psi[:, start-1, :] = state[:, start-1, 0] # line 8
-    log_psi = log_psi[:, start-1:].logsumexp(dim=1)
+    log_psi[:, start:] = log_phi[:, start - 1 : -1] + logp[:, start:]
+
+    log_psi[:, start - 1, :] = state[:, start - 1, 0]  # line 8
+    log_psi = log_psi[:, start - 1 :].logsumexp(dim=1)
 
     # ignore generating blank
     log_psi[:, blank] = -np.inf
 
     # line 3-4
     log_psi[:, eos] = state_sum[:, -1]
-    
+
     # line 11-12
     for t in range(start, T):
-        state[:, t, 0] = torch.logsumexp(torch.stack([state[:, t - 1, 0], log_phi[:, t - 1]], dim=0), dim=0) + logp[:, t]
-        state[:, t, 1] = torch.logsumexp(state[:, t-1], dim=1) + logp[:, t, blank].view(-1, 1)
-    
+        state[:, t, 0] = (
+            torch.logsumexp(
+                torch.stack([state[:, t - 1, 0], log_phi[:, t - 1]], dim=0), dim=0
+            )
+            + logp[:, t]
+        )
+        state[:, t, 1] = torch.logsumexp(state[:, t - 1], dim=1) + logp[
+            :, t, blank
+        ].view(-1, 1)
+
     return log_psi, state.permute(0, 3, 1, 2)
 
 
 @torch.jit.script
-def batch_forward_ctc_prefix_low_memory(y: torch.Tensor, state: torch.Tensor, logp: torch.Tensor, blank: int, eos: int):
+def batch_forward_ctc_prefix_low_memory(
+    y: torch.Tensor, state: torch.Tensor, logp: torch.Tensor, blank: int, eos: int
+):
     """
     This implementation uses less memory, but is slower
     """
@@ -185,11 +213,11 @@ def batch_forward_ctc_prefix_low_memory(y: torch.Tensor, state: torch.Tensor, lo
     start = max(output_length, 1)
     B, T, V = logp.shape
     device = logp.device
-    
+
     # line 6
     state = torch.full((B, T, 2, V), -np.inf, device=device)
     if output_length == 0:
-        state[:, 0, 0] = logp[:, 0] # non-blank
+        state[:, 0, 0] = logp[:, 0]  # non-blank
 
     # line 10
     state_sum = state_prev.logsumexp(dim=2)
@@ -200,15 +228,21 @@ def batch_forward_ctc_prefix_low_memory(y: torch.Tensor, state: torch.Tensor, lo
     log_phi.scatter_(2, last.view(B, 1, 1).expand(B, T, 1), state_prev[:, :, 1:])
 
     # line 11-12
-    log_psi = state[:, start-1, 0]
+    log_psi = state[:, start - 1, 0]
     buffer = torch.zeros((2, B, V), device=device, dtype=torch.float)
     for t in range(start, T):
         buffer[0] = state[:, t - 1, 0]
         buffer[1] = log_phi[:, t - 1]
         state[:, t, 0].copy_(torch.logsumexp(buffer, dim=0).add_(logp[:, t]))
-        state[:, t, 1].copy_(torch.logsumexp(state[:, t - 1], dim=1).add_(logp[:, t, blank].view(-1, 1).expand(-1, V)))
-        log_psi = torch.logsumexp(torch.stack([log_psi, log_phi[:, t - 1].add_(logp[:, t])], dim=0), dim=0)
-    
+        state[:, t, 1].copy_(
+            torch.logsumexp(state[:, t - 1], dim=1).add_(
+                logp[:, t, blank].view(-1, 1).expand(-1, V)
+            )
+        )
+        log_psi = torch.logsumexp(
+            torch.stack([log_psi, log_phi[:, t - 1].add_(logp[:, t])], dim=0), dim=0
+        )
+
     return log_psi, state.permute(0, 3, 1, 2)
 
 
@@ -231,9 +265,9 @@ class BatchCTCPrefixScore(object):
         :return: CTC state
         """
         B, T = logp.shape[:2]
-        state = torch.full((B, T, 2), - np.inf, device=logp.device)
+        state = torch.full((B, T, 2), -np.inf, device=logp.device)
         state[:, :, 1] = logp[:, :, self.blank].cumsum(dim=1)
-        score = logp.new_zeros(B) 
+        score = logp.new_zeros(B)
 
         return score, state
 
@@ -245,8 +279,12 @@ class BatchCTCPrefixScore(object):
         state = state.index_select(0, new_order)
         logp = logp.index_select(0, new_order)
         if last_token is not None:
-            score = score.gather(1, last_token.view(-1, 1)).view(-1) # the score corresponds to the last token
-            state = state.gather(1, last_token.view(-1, 1, 1, 1).expand(-1, 1, *state.shape[2:])).squeeze(1)
+            score = score.gather(1, last_token.view(-1, 1)).view(
+                -1
+            )  # the score corresponds to the last token
+            state = state.gather(
+                1, last_token.view(-1, 1, 1, 1).expand(-1, 1, *state.shape[2:])
+            ).squeeze(1)
         assert score.dim() == 1
         assert state.dim() == 3
         return score, state, logp

@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_act(act_type):
-    if act_type == 'relu':
+    if act_type == "relu":
         return act_module_dict[act_type](inplace=True)
     else:
         return act_module_dict[act_type]()
@@ -54,7 +54,13 @@ class ConvFeatureExtractionModelV2(nn.Module):
             conv_bias=False,
         ):
             def make_conv():
-                conv = nn.Conv1d(n_in, n_out, k, stride=stride, bias=conv_bias and mode != "batch_norm")
+                conv = nn.Conv1d(
+                    n_in,
+                    n_out,
+                    k,
+                    stride=stride,
+                    bias=conv_bias and mode != "batch_norm",
+                )
                 nn.init.kaiming_normal_(conv.weight)
                 return conv
 
@@ -82,9 +88,7 @@ class ConvFeatureExtractionModelV2(nn.Module):
                 )
             elif mode == "batch_norm":
                 return nn.Sequential(
-                    make_conv(),
-                    FP32BatchNorm1d(dim, affine=True),
-                    nn.GELU(),
+                    make_conv(), FP32BatchNorm1d(dim, affine=True), nn.GELU(),
                 )
             else:
                 return nn.Sequential(make_conv(), nn.Dropout(p=dropout), nn.GELU())
@@ -133,13 +137,13 @@ class ConvFeatureExtractionModelV2(nn.Module):
             w_in, w_out = m.weight.shape[1], m.weight.shape[0]
             k, stride, padding = m.weight.shape[2], m.stride[0], m.padding[0]
             bias = m.bias is not None
-            
+
             t = x.size(2)
             new_t = (t - k + 2 * padding) // stride + 1
-            
-            cx['flops'] += k * w_in * w_out * new_t + (w_out if bias else 0)
-            cx['params'] += sum([p.numel() for p in m.parameters()])
-            cx['acts'] += w_out * new_t
+
+            cx["flops"] += k * w_in * w_out * new_t + (w_out if bias else 0)
+            cx["params"] += sum([p.numel() for p in m.parameters()])
+            cx["acts"] += w_out * new_t
             return cx
 
         def complexity(block, x, cx=None):
@@ -148,16 +152,16 @@ class ConvFeatureExtractionModelV2(nn.Module):
             x = block(x)
             cx = conv1d_cx(block[0], x, cx)
             if isinstance(block[-1], torch.nn.GELU):
-                cx['acts'] += x.size(1) * x.size(2)
-                cx['flops'] += x.size(1) * x.size(2) * 8
+                cx["acts"] += x.size(1) * x.size(2)
+                cx["flops"] += x.size(1) * x.size(2) * 8
             else:
                 raise NotImplementedError
-            cx['t'] = x.size(2)
+            cx["t"] = x.size(2)
             return x, cx
 
         for i, block in enumerate(self.conv_layers):
             x, cx = complexity(block, x)
-            flops, acts = cx['flops'], cx['acts']
+            flops, acts = cx["flops"], cx["acts"]
             print(f"{i} flops: {flops / 1e6:.2f} M acts: {acts / 1e3:.2f} K")
 
     def make_generation_fast_(self, **kwargs):
@@ -186,7 +190,7 @@ class ConvFeatureExtractionModelV2(nn.Module):
 
 @torch.no_grad()
 def merge_bn_to_conv(conv, bn):
-    scale = bn.weight / (bn.running_var + bn.eps)**0.5
+    scale = bn.weight / (bn.running_var + bn.eps) ** 0.5
     shift = bn.bias - bn.running_mean * scale
     conv.weight.data.mul_(scale.view(-1, 1, 1))
     conv.bias = nn.Parameter(shift)

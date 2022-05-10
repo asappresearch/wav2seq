@@ -90,16 +90,10 @@ output units",
         help="temperature scaling of the logits",
     )
     parser.add_argument(
-        "--eval-upsample",
-        type=float,
-        default=1.0,
-        help="upsample factor",
+        "--eval-upsample", type=float, default=1.0, help="upsample factor",
     )
     parser.add_argument(
-        "--ctc-weight",
-        type=float,
-        default=0.0,
-        help="ctc weight",
+        "--ctc-weight", type=float, default=0.0, help="ctc weight",
     )
     return parser
 
@@ -184,7 +178,8 @@ def prepare_result_files(args):
         if args.num_shards > 1:
             file_prefix = f"{args.shard_id}_{file_prefix}"
         path = os.path.join(
-            args.results_path, f"{file_prefix}-{args.gen_subset}",
+            args.results_path,
+            f"{file_prefix}-{args.gen_subset}",
             # args.results_path, f"{file_prefix}-{os.path.basename(args.path)}-{args.gen_subset}",
         )
         return open(path, "w", buffering=1)
@@ -233,7 +228,7 @@ def load_models_and_criterions(
             cfg = convert_namespace_to_omegaconf(state["args"])
 
         if task is None:
-            if hasattr(cfg.task, 'data'):
+            if hasattr(cfg.task, "data"):
                 cfg.task.data = data_path
             task = tasks.setup_task(cfg.task)
 
@@ -290,7 +285,6 @@ def main(args, task=None, model_state=None):
 
     use_cuda = torch.cuda.is_available() and not args.cpu
 
-
     logger.info("| decoding with criterion {}".format(args.criterion))
 
     # Load ensemble
@@ -309,13 +303,17 @@ def main(args, task=None, model_state=None):
         )
         optimize_models(args, use_cuda, models)
         for i, model in enumerate(models):
-            logger.info(f'| model {i} size: {get_num_param(model)}')
+            logger.info(f"| model {i} size: {get_num_param(model)}")
             for name, m in model.named_children():
-                logger.info(f'| | model {i} {name} size: {get_num_param(m)}')
+                logger.info(f"| | model {i} {name} size: {get_num_param(m)}")
                 for name2, m2 in m.named_children():
-                    logger.info(f'| | | model {i} {name}.{name2} size: {get_num_param(m2)}')
+                    logger.info(
+                        f"| | | model {i} {name}.{name2} size: {get_num_param(m2)}"
+                    )
                     for name3, m3 in m2.named_children():
-                        logger.info(f'| | | | model {i} {name}.{name2}.{name3} size: {get_num_param(m3)}')
+                        logger.info(
+                            f"| | | | model {i} {name}.{name2}.{name3} size: {get_num_param(m3)}"
+                        )
 
     # Load dataset splits
     task.load_dataset(args.gen_subset)
@@ -358,12 +356,15 @@ def main(args, task=None, model_state=None):
             return W2lFairseqLMDecoder(args, task.target_dictionary)
         elif w2l_decoder == "argmax":
             from wav2seq.decoder.ctc_decoder import CTCArgMaxDecoder
+
             return CTCArgMaxDecoder(args, task.target_dictionary)
         elif w2l_decoder == "s2s":
             from fairseq.dataclass.configs import GenerationConfig
+
             seq_gen_cls = None
-            if args.ctc_weight > 0.:
+            if args.ctc_weight > 0.0:
                 from wav2seq.decoder.ctc_s2s_generator import CTCSeq2seqGenerator
+
                 seq_gen_cls = CTCSeq2seqGenerator
 
             gen_cfg = GenerationConfig(beam=args.beam, lenpen=args.lenpen)
@@ -376,13 +377,17 @@ def main(args, task=None, model_state=None):
                 optimize_models(args, use_cuda, lms)
                 extra_gen_cls_kwargs = {"lm_model": lms[0], "lm_weight": args.lm_weight}
                 generator = task.build_generator(
-                    [model], gen_cfg, extra_gen_cls_kwargs=extra_gen_cls_kwargs,
+                    [model],
+                    gen_cfg,
+                    extra_gen_cls_kwargs=extra_gen_cls_kwargs,
                     seq_gen_cls=seq_gen_cls,
                 )
-                print(f'lm model: {generator.lm_model}')
+                print(f"lm model: {generator.lm_model}")
             else:
-                generator = task.build_generator([model], gen_cfg, seq_gen_cls=seq_gen_cls)
-            if args.ctc_weight > 0.:
+                generator = task.build_generator(
+                    [model], gen_cfg, seq_gen_cls=seq_gen_cls
+                )
+            if args.ctc_weight > 0.0:
                 generator.ctc_weight = args.ctc_weight
             return generator
         else:
@@ -425,10 +430,10 @@ def main(args, task=None, model_state=None):
     errs_t = 0
     lengths_t = 0
     bleu_stats = {
-        'correct': [0, 0, 0, 0],
-        'total': [0, 0, 0, 0],
-        'sys_len': 0,
-        'ref_len': 0,
+        "correct": [0, 0, 0, 0],
+        "total": [0, 0, 0, 0],
+        "sys_len": 0,
+        "ref_len": 0,
     }
     with progress_bar.build_progress_bar(args, itr) as t:
         wps_meter = TimeMeter()
@@ -503,10 +508,10 @@ def main(args, task=None, model_state=None):
 
                 if bleu is not None:
                     for i in range(4):
-                        bleu_stats['correct'][i] += bleu.counts[i]
-                        bleu_stats['total'][i] += bleu.totals[i]
-                    bleu_stats['ref_len'] += bleu.ref_len
-                    bleu_stats['sys_len'] += bleu.sys_len
+                        bleu_stats["correct"][i] += bleu.counts[i]
+                        bleu_stats["total"][i] += bleu.totals[i]
+                    bleu_stats["ref_len"] += bleu.ref_len
+                    bleu_stats["sys_len"] += bleu.sys_len
 
             wps_meter.update(num_generated_tokens)
             t.log({"wps": round(wps_meter.avg)})
@@ -552,7 +557,7 @@ def main(args, task=None, model_state=None):
         logger.info("| Generate {} with beam={}".format(args.gen_subset, args.beam))
         # write the WER info into file in case it's called by infer_multiprocess
         if args.results_path is not None and not os.path.exists(args.results_path):
-            with open(os.path.join(args.results_path, 'wer'), 'w') as fw_wer:
+            with open(os.path.join(args.results_path, "wer"), "w") as fw_wer:
                 fw_wer.write(f"{errs_t} {lengths_t}")
     return task, wer
 
@@ -571,4 +576,3 @@ def cli_main():
 
 if __name__ == "__main__":
     cli_main()
-

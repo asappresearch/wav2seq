@@ -76,7 +76,7 @@ class CTCSeq2seqGenerator(nn.Module):
         self.pad = tgt_dict.pad()
         self.unk = tgt_dict.unk()
         self.eos = tgt_dict.eos() if eos is None else eos
-        self.blank = tgt_dict.index('<s>')
+        self.blank = tgt_dict.index("<s>")
         self.symbols_to_strip_from_output = (
             symbols_to_strip_from_output.union({self.eos})
             if symbols_to_strip_from_output is not None
@@ -179,7 +179,9 @@ class CTCSeq2seqGenerator(nn.Module):
                 yield id, src, ref, hypos[i]
 
     @torch.no_grad()
-    def generate(self, models, sample: Dict[str, Dict[str, Tensor]], **kwargs) -> List[List[Dict[str, Tensor]]]:
+    def generate(
+        self, models, sample: Dict[str, Dict[str, Tensor]], **kwargs
+    ) -> List[List[Dict[str, Tensor]]]:
         """Generate translations. Match the api of other fairseq generators.
 
         Args:
@@ -231,7 +233,10 @@ class CTCSeq2seqGenerator(nn.Module):
                 else torch.tensor(src_tokens.size(-1)).to(src_tokens)
             )
         else:
-            raise Exception("expected src_tokens or source in net input. input keys: " + str(net_input.keys()))
+            raise Exception(
+                "expected src_tokens or source in net input. input keys: "
+                + str(net_input.keys())
+            )
 
         # bsz: total number of sentences in beam
         # Note that src_tokens may have more than 2 dimensions (i.e. audio features)
@@ -251,8 +256,7 @@ class CTCSeq2seqGenerator(nn.Module):
             max_len = src_lengths.max().item()
         else:
             max_len = min(
-                int(self.max_len_a * src_len + self.max_len_b),
-                self.max_len - 1,
+                int(self.max_len_a * src_len + self.max_len_b), self.max_len - 1,
             )
         assert (
             self.min_len <= max_len
@@ -265,18 +269,18 @@ class CTCSeq2seqGenerator(nn.Module):
         use_ctc = self.ctc_weight > 0
         if use_ctc:
             ctc_out = self.model.single_model.forward_ctc(encoder_outs[0])
-            ctc_logp = ctc_out.log_softmax(dim=-1) # B x T x V
+            ctc_logp = ctc_out.log_softmax(dim=-1)  # B x T x V
             ctc_scorer = BatchCTCPrefixScore(self.blank, self.eos)
             ctc_prefix_score, ctc_state = ctc_scorer.initial_state(ctc_logp)
-
 
         # placeholder of indices for bsz * beam_size to hold tokens and accumulative scores
         new_order = torch.arange(bsz).view(-1, 1).repeat(1, beam_size).view(-1)
         new_order = new_order.to(src_tokens.device).long()
         encoder_outs = self.model.reorder_encoder_out(encoder_outs, new_order)
         if use_ctc:
-            ctc_prefix_score, ctc_state, ctc_logp = \
-                ctc_scorer.reorder_state(ctc_prefix_score, ctc_state, ctc_logp, new_order)
+            ctc_prefix_score, ctc_state, ctc_logp = ctc_scorer.reorder_state(
+                ctc_prefix_score, ctc_state, ctc_logp, new_order
+            )
         # ensure encoder_outs is a List.
         assert encoder_outs is not None
 
@@ -350,8 +354,15 @@ class CTCSeq2seqGenerator(nn.Module):
                 )
                 if use_ctc:
                     ctc_prefix_score, ctc_state, ctc_logp = ctc_scorer.reorder_state(
-                        ctc_prefix_score, ctc_state, ctc_logp, reorder_state, tokens[:, step])
-            with torch.autograd.profiler.record_function("EnsembleModel: forward_decoder"):
+                        ctc_prefix_score,
+                        ctc_state,
+                        ctc_logp,
+                        reorder_state,
+                        tokens[:, step],
+                    )
+            with torch.autograd.profiler.record_function(
+                "EnsembleModel: forward_decoder"
+            ):
                 lprobs, avg_attn_scores = self.model.forward_decoder(
                     tokens[:, : step + 1],
                     encoder_outs,
@@ -360,9 +371,13 @@ class CTCSeq2seqGenerator(nn.Module):
                 )
 
             if use_ctc:
-                new_ctc_prefix_score, ctc_state = ctc_scorer(tokens[:, :step+1], ctc_state, ctc_logp)
-                ctc_lprobs = new_ctc_prefix_score - ctc_prefix_score.view(-1, 1) # score of new token
-                ctc_prefix_score = new_ctc_prefix_score # size changed from B to B x V, which will be reduced to B in reorder state
+                new_ctc_prefix_score, ctc_state = ctc_scorer(
+                    tokens[:, : step + 1], ctc_state, ctc_logp
+                )
+                ctc_lprobs = new_ctc_prefix_score - ctc_prefix_score.view(
+                    -1, 1
+                )  # score of new token
+                ctc_prefix_score = new_ctc_prefix_score  # size changed from B to B x V, which will be reduced to B in reorder state
                 lprobs += ctc_lprobs * self.ctc_weight
 
             if self.lm_model is not None:

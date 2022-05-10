@@ -50,9 +50,16 @@ class FP32BatchNorm1d(nn.BatchNorm1d):
         return F.batch_norm(
             input.float(),
             # If buffers are not to be tracked, ensure that they won't be updated
-            self.running_mean if not self.training or self.track_running_stats else None,
+            self.running_mean
+            if not self.training or self.track_running_stats
+            else None,
             self.running_var if not self.training or self.track_running_stats else None,
-            self.weight.float(), self.bias.float(), bn_training, exponential_average_factor, self.eps).to(dtype)
+            self.weight.float(),
+            self.bias.float(),
+            bn_training,
+            exponential_average_factor,
+            self.eps,
+        ).to(dtype)
 
 
 class FP32BatchNorm2d(nn.BatchNorm2d):
@@ -102,6 +109,13 @@ class FP32BatchNorm2d(nn.BatchNorm2d):
         return F.batch_norm(
             input.float(),
             # If buffers are not to be tracked, ensure that they won't be updated
-            self.running_mean if not self.training or self.track_running_stats else None,
+            self.running_mean
+            if not self.training or self.track_running_stats
+            else None,
             self.running_var if not self.training or self.track_running_stats else None,
-            self.weight.float(), self.bias.float(), bn_training, exponential_average_factor, self.eps).to(dtype)
+            self.weight.float(),
+            self.bias.float(),
+            bn_training,
+            exponential_average_factor,
+            self.eps,
+        ).to(dtype)

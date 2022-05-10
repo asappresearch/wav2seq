@@ -13,66 +13,96 @@ import subprocess
 import pandas as pd
 
 lang_pair_dict = {
-    'X-high_en': ['fr_en', 'de_en', 'es_en', 'ca_en'],
-    'X-mid_en': ['fa_en', 'it_en', 'ru_en', 'pt_en', 'zh-CN_en'],
-    'X-low_en': ['tr_en', 'ar_en', 'et_en', 'mn_en', 'nl_en', 'sv-SE_en',
-                 'lv_en', 'sl_en', 'ta_en', 'ja_en', 'id_en', 'cy_en']
+    "X-high_en": ["fr_en", "de_en", "es_en", "ca_en"],
+    "X-mid_en": ["fa_en", "it_en", "ru_en", "pt_en", "zh-CN_en"],
+    "X-low_en": [
+        "tr_en",
+        "ar_en",
+        "et_en",
+        "mn_en",
+        "nl_en",
+        "sv-SE_en",
+        "lv_en",
+        "sl_en",
+        "ta_en",
+        "ja_en",
+        "id_en",
+        "cy_en",
+    ],
 }
-lang_pair_dict['X_en'] = lang_pair_dict['X-low_en'] + lang_pair_dict['X-mid_en'] + lang_pair_dict['X-high_en']
-
+lang_pair_dict["X_en"] = (
+    lang_pair_dict["X-low_en"]
+    + lang_pair_dict["X-mid_en"]
+    + lang_pair_dict["X-high_en"]
+)
 
 
 def run_exp(
-    model='save/pretrained/wav2vec_small_100h.pt',
+    model="save/pretrained/wav2vec_small_100h.pt",
     batch_scale=1,
     lm="nolm-argmax",
     beam_size=50,
-    lm_weight=2.,
-    word_score=-1.,
+    lm_weight=2.0,
+    word_score=-1.0,
     subset="dev-other",
     data="manifest/librispeech",
-    upsample=1.,
+    upsample=1.0,
     save_results=False,
     dump_emissions=False,
-    ctc_temp=1.,
-    csv_log_file='exp-eval-logs.csv',
+    ctc_temp=1.0,
+    csv_log_file="exp-eval-logs.csv",
     fp16=False,
     batch_size=-1,
     quiet=False,
     use_bpe=False,
 ):
     if os.path.isdir(model):
-        ckpt = os.path.join(model, 'checkpoints/checkpoint_best.pt')
+        ckpt = os.path.join(model, "checkpoints/checkpoint_best.pt")
         if save_results:
             if "nolm" in lm:
-                results_path = os.path.join(model, 'decode', subset, lm)
+                results_path = os.path.join(model, "decode", subset, lm)
             else:
-                results_path = os.path.join(model, 'decode', subset,
-                                            f'{lm}-b{beam_size}-lw{lm_weight}-ws{word_score}')
+                results_path = os.path.join(
+                    model,
+                    "decode",
+                    subset,
+                    f"{lm}-b{beam_size}-lw{lm_weight}-ws{word_score}",
+                )
         else:
             results_path = None
-        emission_path = os.path.join(
-            model, 'decode', subset, 'emissions.npy') if dump_emissions else None
+        emission_path = (
+            os.path.join(model, "decode", subset, "emissions.npy")
+            if dump_emissions
+            else None
+        )
     else:
         ckpt = model
         if save_results:
             if "nolm" in lm:
                 results_path = os.path.join(
-                    os.path.basename(model) + '-decode', subset, lm)
+                    os.path.basename(model) + "-decode", subset, lm
+                )
             else:
                 results_path = os.path.join(
-                    os.path.basename(model) + '-decode', subset,
-                    f'{lm}-b{beam_size}-lw{lm_weight}-ws{word_score}')
+                    os.path.basename(model) + "-decode",
+                    subset,
+                    f"{lm}-b{beam_size}-lw{lm_weight}-ws{word_score}",
+                )
         else:
             results_path = None
-        emission_path = os.path.join(os.path.basename(
-            model) + '-decode', subset) if dump_emissions else None
+        emission_path = (
+            os.path.join(os.path.basename(model) + "-decode", subset)
+            if dump_emissions
+            else None
+        )
 
     if not quiet:
         print(f"ckpt: {ckpt}")
         print(f"lm: {lm}")
-        if 'nolm' not in lm:
-            print(f"lm_weight: {lm_weight} word_score: {word_score} beam_size: {beam_size}")
+        if "nolm" not in lm:
+            print(
+                f"lm_weight: {lm_weight} word_score: {word_score} beam_size: {beam_size}"
+            )
 
     user_dir = os.path.abspath("pseudo_language")
     max_tokens = 4000000 * batch_scale
@@ -85,7 +115,7 @@ def run_exp(
         f" --sil-weight 0 --max-tokens {max_tokens}"
         f" --lm-weight {lm_weight} --word-score {word_score}"
         f" --criterion ctc"
-        f" --beam {beam_size}" 
+        f" --beam {beam_size}"
         f" --eval-upsample {upsample}"
         # f" --task audio_pretraining"
         # f" --beam-size-token {beam_size}"
@@ -100,25 +130,24 @@ def run_exp(
         cmd += " --labels bpe --post-process sentencepiece"
     else:
         cmd += " --labels ltr --post-process letter"
-    if ctc_temp != 1.:
+    if ctc_temp != 1.0:
         cmd += f" --eval-temperature {ctc_temp}"
     if batch_size > 0:
         cmd += f" --batch-size {batch_size}"
 
     if lm == "nolm":
-        cmd += " --w2l-decoder viterbi" 
+        cmd += " --w2l-decoder viterbi"
     elif lm == "nolm-argmax":
         cmd += " --w2l-decoder argmax"
-    elif 's2s' in lm:
+    elif "s2s" in lm:
         cmd += " --w2l-decoder s2s"
-        if lm == 'lm-s2s':
+        if lm == "lm-s2s":
             cmd += f" --lm-model ${lm}"
     else:
         cmd += f" --w2l-decoder kenlm --lm-model save/kenlm/{lm}/4gram.bin --lexicon save/kenlm/{lm}/lexicon.lst"
 
     if fp16:
         cmd += " --fp16"
-        
 
     if "vox" in ckpt:
         cmd += " --normalize"
@@ -126,19 +155,23 @@ def run_exp(
     if not quiet:
         print("cmd:")
         print(cmd)
-    result = subprocess.run(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result = subprocess.run(
+        shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     wer, bleu, time_used, model_size, extract_size = parse_result(result, quiet=quiet)
 
     if not quiet:
-        print(f"WER: {wer} time_used: {time_used} model_size: {model_size} extract_size: {extract_size}")
-    msg = f'{subset},{model},{lm},{model_size},{extract_size},{time_used},{wer}'
+        print(
+            f"WER: {wer} time_used: {time_used} model_size: {model_size} extract_size: {extract_size}"
+        )
+    msg = f"{subset},{model},{lm},{model_size},{extract_size},{time_used},{wer}"
     if not quiet:
         print(msg)
     if csv_log_file is not None:
-        with open(csv_log_file, 'a') as f:
+        with open(csv_log_file, "a") as f:
             print(msg, file=f)
 
-    return wer, time_used, model_size, extract_size 
+    return wer, time_used, model_size, extract_size
 
 
 def parse_result(result, quiet=False):
@@ -147,53 +180,53 @@ def parse_result(result, quiet=False):
     wer = -1
     time_used = -1
     bleu = -1
-    for line in result.stderr.decode("utf-8").split('\n'):
+    for line in result.stderr.decode("utf-8").split("\n"):
         if not quiet:
             print(line)
         pos = line.find("WER: ")
         if pos >= 0:
-            wer = float(line[pos+5:].rstrip())
+            wer = float(line[pos + 5 :].rstrip())
 
         pos = line.find("BLEU: ")
         if pos >= 0:
-            bleu = float(line[pos+6:].rstrip())
+            bleu = float(line[pos + 6 :].rstrip())
 
         pos = line.find("time used: ")
         if pos >= 0:
-            time_used = float(line[pos+11:].rstrip())
+            time_used = float(line[pos + 11 :].rstrip())
 
-        query = 'model 0 size: '
+        query = "model 0 size: "
         pos = line.find(query)
         if pos >= 0:
-            model_size = int(line[pos+len(query):].rstrip())
+            model_size = int(line[pos + len(query) :].rstrip())
 
-        query = 'w2v_encoder.w2v_model.feature_extractor size: '
+        query = "w2v_encoder.w2v_model.feature_extractor size: "
         pos = line.find(query)
         if pos >= 0:
-            extract_size += int(line[pos+len(query):].rstrip())
+            extract_size += int(line[pos + len(query) :].rstrip())
 
-        query = 'w2v_encoder.w2v_model.spec_feature_extractor size: '
+        query = "w2v_encoder.w2v_model.spec_feature_extractor size: "
         pos = line.find(query)
         if pos >= 0:
-            extract_size += int(line[pos+len(query):].rstrip())
+            extract_size += int(line[pos + len(query) :].rstrip())
 
-    return wer, bleu, time_used, model_size, extract_size 
-    
+    return wer, bleu, time_used, model_size, extract_size
+
 
 def tune_lm(
-    model='save/pretrained/wav2vec_small_100h.pt',
+    model="save/pretrained/wav2vec_small_100h.pt",
     batch_scale=1,
     lms=["nolm-argmax", "librispeech-official"],
     beam_size=50,
-    lm_weight=2.,
-    word_score=-1.,
+    lm_weight=2.0,
+    word_score=-1.0,
     subsets=["dev-other"],
     data="manifest/librispeech",
-    upsample=1.,
+    upsample=1.0,
     save_results=False,
     dump_emissions=False,
-    ctc_temp=1.,
-    csv_log_file='exp-eval-logs.csv',
+    ctc_temp=1.0,
+    csv_log_file="exp-eval-logs.csv",
     fp16=False,
     batch_size=-1,
     use_bpe=False,
@@ -202,12 +235,14 @@ def tune_lm(
         for subset in subsets:
             try:
                 run_exp(
-                    model, batch_scale, lm, 
-                    beam_size=beam_size, 
+                    model,
+                    batch_scale,
+                    lm,
+                    beam_size=beam_size,
                     lm_weight=lm_weight,
                     word_score=word_score,
-                    subset=subset, 
-                    data=data, 
+                    subset=subset,
+                    data=data,
                     upsample=upsample,
                     save_results=save_results,
                     dump_emissions=dump_emissions,
@@ -219,50 +254,50 @@ def tune_lm(
                 )
             except:
                 pass
-            print("-"*80)
+            print("-" * 80)
             # only need to dump once per subset
             dump_emissions = False
 
 
 def run_folder(
-    root='save-ft-100h/example',
+    root="save-ft-100h/example",
     batch_scale=1,
     lms=["nolm-argmax", "librispeech-official"],
     beam_size=50,
-    lm_weight=2.,
-    word_score=-1.,
+    lm_weight=2.0,
+    word_score=-1.0,
     subsets=["dev-other"],
     data="manifest/librispeech",
-    upsample=1.,
+    upsample=1.0,
     save_results=False,
     dump_emissions=False,
-    ctc_temp=1.,
-    checkpoint_name='checkpoint_best.pt',
+    ctc_temp=1.0,
+    checkpoint_name="checkpoint_best.pt",
     skip=0,
     fp16=False,
     batch_size=-1,
-    csv_log_file='exp-eval-logs.csv',
+    csv_log_file="exp-eval-logs.csv",
     use_bpe=False,
 ):
     exp_dirs = []
     for dirname, dirs, files in os.walk(root):
         if checkpoint_name in files:
             exp_dirs.append(os.path.join(dirname, checkpoint_name))
-    print('skipped folders:', *exp_dirs[:skip], sep='\n')
+    print("skipped folders:", *exp_dirs[:skip], sep="\n")
     exp_dirs = exp_dirs[skip:]
-    print('folders:', *exp_dirs, sep='\n')
-    print('')
+    print("folders:", *exp_dirs, sep="\n")
+    print("")
 
-    for model in exp_dirs: 
+    for model in exp_dirs:
         tune_lm(
             model=model,
             batch_scale=batch_scale,
             lms=lms,
-            beam_size=beam_size, 
+            beam_size=beam_size,
             lm_weight=lm_weight,
             word_score=word_score,
-            subsets=subsets, 
-            data=data, 
+            subsets=subsets,
+            data=data,
             upsample=upsample,
             save_results=save_results,
             dump_emissions=dump_emissions,
@@ -272,7 +307,7 @@ def run_folder(
             csv_log_file=csv_log_file,
             use_bpe=use_bpe,
         )
-        print("="*80)
+        print("=" * 80)
 
 
 def time_folder(
@@ -285,16 +320,16 @@ def time_folder(
         folders = [line.strip() for line in f]
     if os.path.exists(output_file):
         with open(output_file) as f:
-            finished = set([line.split(',')[0].strip() for line in f])
+            finished = set([line.split(",")[0].strip() for line in f])
     else:
         finished = set([])
-    
+
     folders = [d for d in folders if d not in finished]
     print("finished:")
-    print(*finished, sep='\n')
+    print(*finished, sep="\n")
     print()
     print("folders:")
-    print(*folders, sep='\n')
+    print(*folders, sep="\n")
     print()
 
     for folder in folders:
@@ -303,31 +338,32 @@ def time_folder(
             print(folder)
             for r in range(repeat):
                 wer, time_used, model_size, extract_size = run_exp(
-                    folder, 1, 
-                    lm="nolm-argmax", 
-                    subset="dev-other", 
+                    folder,
+                    1,
+                    lm="nolm-argmax",
+                    subset="dev-other",
                     csv_log_file=None,
                     fp16=fp16,
                     quiet=True,
                 )
                 msg += f",{time_used}"
                 print(time_used)
-            
+
             with open(output_file, "a") as f:
                 print(msg, file=f)
         except:
             pass
 
-    return 
+    return
 
 
 def eval_s2s_asr(
-    root='save-ft-100h/example',
+    root="save-ft-100h/example",
     lms=["nolm-s2s"],
     beam_size=10,
     lm_weight=0.3,
     subsets=["dev-other"],
-    csv_log_file='exp-eval-logs.csv',
+    csv_log_file="exp-eval-logs.csv",
     use_bpe=True,
 ):
     run_folder(
@@ -342,50 +378,70 @@ def eval_s2s_asr(
 
 
 def eval_st(
-    model='save/pretrained/wav2vec_small_100h.pt',
+    model="save/pretrained/wav2vec_small_100h.pt",
     subset="dev",
     lm="nolm-s2s",
     beam_size=10,
     lenpen=1.0,
-    labels='spm_bpe_v1000',
+    labels="spm_bpe_v1000",
     lm_weight=0.2,
-    word_score=-1.,
+    word_score=-1.0,
     data="manifest/covost-v2/en_de",
-    csv_log_file='',
+    csv_log_file="",
     save_results=False,
     fp16=True,
     quiet=False,
     max_tokens=4_000_000,
     batch_size=-1,
     dump_emissions=False,
-    lm_model=""
+    lm_model="",
 ):
     lang_pair = os.path.basename(data)
     if os.path.isdir(model):
-        ckpt = os.path.join(model, 'checkpoints/checkpoint_best.pt')
+        ckpt = os.path.join(model, "checkpoints/checkpoint_best.pt")
     else:
         ckpt = model
 
-    if csv_log_file == '':
-        csv_log_file = os.path.join('eval_logs', '-'.join(data.split('/')[1:]) + '-' + '-'.join(model.split('/')[:2]) + '.csv')
+    if csv_log_file == "":
+        csv_log_file = os.path.join(
+            "eval_logs",
+            "-".join(data.split("/")[1:])
+            + "-"
+            + "-".join(model.split("/")[:2])
+            + ".csv",
+        )
 
     if save_results:
         if "nolm" in lm:
-            results_path = os.path.join(os.path.splitext(model)[0], 'decode', subset, f'{lm}-b{beam_size}-lp{lenpen}')
+            results_path = os.path.join(
+                os.path.splitext(model)[0],
+                "decode",
+                subset,
+                f"{lm}-b{beam_size}-lp{lenpen}",
+            )
         else:
-            results_path = os.path.join(os.path.splitext(model)[0], 'decode', subset,
-                                        f'{lm}-b{beam_size}-lp{lenpen}-lw{lm_weight}-ws{word_score}')
+            results_path = os.path.join(
+                os.path.splitext(model)[0],
+                "decode",
+                subset,
+                f"{lm}-b{beam_size}-lp{lenpen}-lw{lm_weight}-ws{word_score}",
+            )
         os.makedirs(results_path, exist_ok=True)
     else:
         results_path = None
-    emission_path = os.path.join(
-        model, 'decode', subset, 'emissions.npy') if dump_emissions else None
+    emission_path = (
+        os.path.join(model, "decode", subset, "emissions.npy")
+        if dump_emissions
+        else None
+    )
 
     if not quiet:
         print(f"ckpt: {ckpt}")
         print(f"lm: {lm}")
-        if 'nolm' not in lm:
-            print(f"lm_weight: {lm_weight} word_score: {word_score} beam_size: {beam_size}")
+        if "nolm" not in lm:
+            print(
+                f"lm_weight: {lm_weight} word_score: {word_score} beam_size: {beam_size}"
+            )
 
     user_dir = os.path.abspath("pseudo_language")
 
@@ -397,7 +453,7 @@ def eval_st(
         f" --sil-weight 0 --max-tokens {max_tokens}"
         f" --lm-weight {lm_weight} --word-score {word_score}"
         f" --criterion ctc"
-        f" --beam {beam_size}" 
+        f" --beam {beam_size}"
         f" --lenpen {lenpen}"
         f" --labels {labels}"
     )
@@ -406,7 +462,7 @@ def eval_st(
         cmd += f" --results-path {results_path}"
     if emission_path is not None:
         cmd += f" --dump-emissions {emission_path}"
-    if labels == 'ltr':
+    if labels == "ltr":
         cmd += " --post-process letter"
     else:
         cmd += " --post-process sentencepiece"
@@ -414,87 +470,91 @@ def eval_st(
         cmd += f" --batch-size {batch_size}"
 
     if lm == "nolm":
-        cmd += " --w2l-decoder viterbi" 
+        cmd += " --w2l-decoder viterbi"
     elif lm == "nolm-argmax":
         cmd += " --w2l-decoder argmax"
-    elif 's2s' in lm:
+    elif "s2s" in lm:
         cmd += " --w2l-decoder s2s"
-        if lm == 'lm-s2s':
+        if lm == "lm-s2s":
             cmd += f" --lm-model ${lm_model}"
     else:
         cmd += f" --w2l-decoder kenlm --lm-model save/kenlm/{lm}/4gram.bin --lexicon save/kenlm/{lm}/lexicon.lst"
 
     if fp16:
         cmd += " --fp16"
-        
+
     # if "vox" in ckpt:
     #     cmd += " --normalize"
 
     if not quiet:
         print("cmd:")
         print(cmd)
-    result = subprocess.run(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result = subprocess.run(
+        shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
     wer, bleu, time_used, model_size, extract_size = parse_result(result, quiet=quiet)
 
     if not quiet:
-        print(f"WER: {wer} BLEU: {bleu} time_used: {time_used} model_size: {model_size} extract_size: {extract_size}")
-    msg = f'{lang_pair},{subset},{model},{beam_size},{lenpen},{lm},{model_size},{time_used},{wer},{bleu}'
+        print(
+            f"WER: {wer} BLEU: {bleu} time_used: {time_used} model_size: {model_size} extract_size: {extract_size}"
+        )
+    msg = f"{lang_pair},{subset},{model},{beam_size},{lenpen},{lm},{model_size},{time_used},{wer},{bleu}"
     if not quiet:
         print(msg)
     if csv_log_file is not None:
-        with open(csv_log_file, 'a') as f:
+        with open(csv_log_file, "a") as f:
             print(msg, file=f)
 
     return wer, bleu, time_used, model_size, extract_size, results_path
 
-    
+
 def tune_st(
-    root='save-ft-100h/example',
+    root="save-ft-100h/example",
     max_tokens=4_000_000,
-    lm='nolm-s2s',
+    lm="nolm-s2s",
     beam_size=10,
     lm_weight=0.2,
-    word_score=-1.,
+    word_score=-1.0,
     data="manifest/covost-v2/en_de",
     save_results=False,
-    checkpoint_name='checkpoint_best.pt',
+    checkpoint_name="checkpoint_best.pt",
     skip=0,
     batch_size=-1,
     lenpens=[1.0, 0.5, 1.5],
-    labels='spm_bpe_v1000',
+    labels="spm_bpe_v1000",
     fp16=True,
-    csv_log_file='',
+    csv_log_file="",
 ):
     exp_dirs = []
     for dirname, dirs, files in os.walk(root):
         if checkpoint_name in files:
             exp_dirs.append(os.path.join(dirname, checkpoint_name))
-    print('skipped folders:', *exp_dirs[:skip], sep='\n')
+    print("skipped folders:", *exp_dirs[:skip], sep="\n")
     exp_dirs = exp_dirs[skip:]
-    print('folders:', *exp_dirs, sep='\n')
-    print('')
+    print("folders:", *exp_dirs, sep="\n")
+    print("")
     lang_pair = os.path.basename(data)
 
     tune_log_file = "eval_logs/covost-tune_st-results.csv"
     if os.path.exists(tune_log_file):
         result_df = pd.read_csv(tune_log_file)
     else:
-        with open(tune_log_file, 'w') as f:
+        with open(tune_log_file, "w") as f:
             print("model,lang_pair,best_lenpen,dev_bleu,test_bleu", file=f)
 
-    for model in exp_dirs: 
+    for model in exp_dirs:
 
         dev_results = []
         for lenpen in lenpens:
             bleu = eval_st(
-                subset='dev', 
+                subset="dev",
                 lenpen=lenpen,
                 model=model,
                 lm=lm,
-                beam_size=beam_size, 
+                beam_size=beam_size,
                 lm_weight=lm_weight,
                 word_score=word_score,
-                data=data, 
+                data=data,
                 save_results=save_results,
                 fp16=fp16,
                 batch_size=batch_size,
@@ -506,17 +566,17 @@ def tune_st(
 
         best_bleu, best_lenpen = max(dev_results)
 
-        print(f'dev_results: {dev_results}')
+        print(f"dev_results: {dev_results}")
 
         test_bleu = eval_st(
-            subset='test', 
+            subset="test",
             lenpen=best_lenpen,
             model=model,
             lm=lm,
-            beam_size=beam_size, 
+            beam_size=beam_size,
             lm_weight=lm_weight,
             word_score=word_score,
-            data=data, 
+            data=data,
             save_results=False,
             fp16=fp16,
             batch_size=batch_size,
@@ -524,37 +584,39 @@ def tune_st(
             max_tokens=max_tokens,
             labels=labels,
         )[1]
-        print(f'{lang_pair}: best lenpen {best_lenpen} dev bleu: {best_bleu} test bleu: {test_bleu}')
-        print("=" * 80 + '\n')
-        with open(tune_log_file, 'a') as f:
+        print(
+            f"{lang_pair}: best lenpen {best_lenpen} dev bleu: {best_bleu} test bleu: {test_bleu}"
+        )
+        print("=" * 80 + "\n")
+        with open(tune_log_file, "a") as f:
             msg = f"{model},{lang_pair},{best_lenpen},{best_bleu},{test_bleu}"
             print(msg, file=f)
 
 
 def tune_st_to_en_all(
-    root='save-ft-100h/example',
+    root="save-ft-100h/example",
     max_tokens=4_000_000,
-    lm='nolm-s2s',
+    lm="nolm-s2s",
     beam_size=10,
     lm_weight=0.2,
-    word_score=-1.,
+    word_score=-1.0,
     data="manifest/covost-v2",
     save_results=False,
-    checkpoint_name='checkpoint_best.pt',
+    checkpoint_name="checkpoint_best.pt",
     skip=0,
     batch_size=-1,
     lenpens=[1.0, 0.5, 1.5],
-    labels='spm_bpe_v1000',
+    labels="spm_bpe_v1000",
     fp16=True,
-    csv_log_file='',
-    skip_lang_pair='',
-    lang_set='X_en'
+    csv_log_file="",
+    skip_lang_pair="",
+    lang_set="X_en",
 ):
     if isinstance(skip_lang_pair, str):
-        skip_lang_pair = set(skip_lang_pair.split(','))
+        skip_lang_pair = set(skip_lang_pair.split(","))
     else:
         skip_lang_pair = set(skip_lang_pair)
-    print('skip_lang_pair:', skip_lang_pair)
+    print("skip_lang_pair:", skip_lang_pair)
     eval_lang_pairs = lang_pair_dict[lang_set]
     for lang_pair in eval_lang_pairs:
         if lang_pair in skip_lang_pair:
@@ -578,5 +640,5 @@ def tune_st_to_en_all(
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     fire.Fire()

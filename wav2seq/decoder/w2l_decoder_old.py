@@ -52,8 +52,8 @@ class W2lDecoder(object):
         self.tgt_dict = tgt_dict
         self.vocab_size = len(tgt_dict)
         self.nbest = args.nbest
-        self.temperature = getattr(args, 'eval_temperature', 1.0)
-        self.eval_upsample = getattr(args, 'eval_upsample', 1.0)
+        self.temperature = getattr(args, "eval_temperature", 1.0)
+        self.eval_upsample = getattr(args, "eval_upsample", 1.0)
 
         # criterion-specific init
         if args.criterion == "ctc":
@@ -94,13 +94,13 @@ class W2lDecoder(object):
         elif self.criterion_type == CriterionType.ASG:
             emissions = encoder_out["encoder_out"]
         emissions = emissions.transpose(0, 1).float().cpu().contiguous()
-        if encoder_out['padding_mask'] is not None:
-            emissions[encoder_out['padding_mask'].cpu()] = 0.
-            emissions[encoder_out['padding_mask'].cpu()][:, self.blank] = 10.
-        if self.eval_upsample != 1.:
-            emissions = rearrange(emissions, 'b t c -> b c t')
+        if encoder_out["padding_mask"] is not None:
+            emissions[encoder_out["padding_mask"].cpu()] = 0.0
+            emissions[encoder_out["padding_mask"].cpu()][:, self.blank] = 10.0
+        if self.eval_upsample != 1.0:
+            emissions = rearrange(emissions, "b t c -> b c t")
             emissions = F.interpolate(emissions, scale_factor=self.eval_upsample)
-            emissions = rearrange(emissions, 'b c t -> b t c').contiguous()
+            emissions = rearrange(emissions, "b c t -> b t c").contiguous()
         return emissions
 
     def get_tokens(self, idxs):

@@ -37,6 +37,7 @@ from fairseq.modules import (
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class Wav2Vec2AsrConfig(FairseqDataclass):
     w2v_path: str = field(
@@ -157,7 +158,8 @@ class Wav2Vec2AsrConfig(FairseqDataclass):
         default=None, metadata={"help": "path of the pretrained checkpoint"},
     )
     freeze_decoder: bool = field(
-        default=False, metadata={"help": "freeze the decoder transformer layers as well"},
+        default=False,
+        metadata={"help": "freeze the decoder transformer layers as well"},
     )
     drop_upsample: bool = field(
         default=False, metadata={"help": "drop upsampling layer in SEW"},
@@ -169,14 +171,23 @@ class Wav2Vec2AsrConfig(FairseqDataclass):
     use_mdha: bool = field(
         default=False, metadata={"help": "use Multi-DConv-Head Attention"},
     )
-    activation_fn: str = field(
-        default='relu', metadata={"help": "activation function"}
-    )
+    activation_fn: str = field(default="relu", metadata={"help": "activation function"})
     # NormFormer
-    scale_fc: Optional[bool] = field(default=False, metadata={"help": 'Insert LayerNorm between fully connected layers'})
-    scale_attn: Optional[bool] = field(default=False, metadata={"help": 'Insert LayerNorm after attention'})
-    scale_heads: Optional[bool] = field(default=False, metadata={"help": 'Learn a scale coefficient for each attention head'})
-    scale_resids: Optional[bool] = field(default=False, metadata={"help": 'Learn a scale coefficient for each residual connection'})
+    scale_fc: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Insert LayerNorm between fully connected layers"},
+    )
+    scale_attn: Optional[bool] = field(
+        default=False, metadata={"help": "Insert LayerNorm after attention"}
+    )
+    scale_heads: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Learn a scale coefficient for each attention head"},
+    )
+    scale_resids: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Learn a scale coefficient for each residual connection"},
+    )
 
 
 @dataclass
@@ -204,10 +215,12 @@ class Wav2VecCtc(BaseFairseqModel):
         if cfg.pretrained_ckpt:
             logger.info(f"loading pretrained ckpt from {cfg.pretrained_ckpt}")
             from fairseq.checkpoint_utils import load_checkpoint_to_cpu
+
             ckpt = load_checkpoint_to_cpu(cfg.pretrained_ckpt)
-            model_cfg = ckpt['cfg'].model
+            model_cfg = ckpt["cfg"].model
 
             from omegaconf import open_dict
+
             enc_overwrite = {
                 "dropout",
                 "activation_dropout",
@@ -240,7 +253,11 @@ class Wav2VecCtc(BaseFairseqModel):
         w2v_encoder.w2v_model.mask_prob = cfg.mask_prob
 
         if cfg.pretrained_ckpt:
-            w2v_state_dict = {k[len('encoder.'):]: v for k, v in ckpt['model'].items() if k.startswith('encoder.')}
+            w2v_state_dict = {
+                k[len("encoder.") :]: v
+                for k, v in ckpt["model"].items()
+                if k.startswith("encoder.")
+            }
             w2v_encoder.load_state_dict(w2v_state_dict, strict=False)
 
         return cls(cfg, w2v_encoder)
@@ -280,6 +297,7 @@ class Wav2VecCtc(BaseFairseqModel):
 
     def extract_features(self, *args, **kwargs):
         return self.w2v_encoder.w2v_model.extract_features(*args, **kwargs)
+
 
 @dataclass
 class Wav2Vec2Seq2SeqConfig(Wav2Vec2AsrConfig):
@@ -350,8 +368,9 @@ class Wav2Vec2Seq2SeqModel(FairseqEncoderDecoderModel):
         if cfg.pretrained_ckpt:
             logger.info(f"loading pretrained ckpt from {cfg.pretrained_ckpt}")
             from fairseq.checkpoint_utils import load_checkpoint_to_cpu
+
             ckpt = load_checkpoint_to_cpu(cfg.pretrained_ckpt)
-            model_cfg = ckpt['cfg'].model
+            model_cfg = ckpt["cfg"].model
 
             from omegaconf import open_dict
 
@@ -382,7 +401,7 @@ class Wav2Vec2Seq2SeqModel(FairseqEncoderDecoderModel):
             logger.info(f"model_cfg: {model_cfg}")
         else:
             model_cfg = cfg
-            
+
         src_dict, tgt_dict = task.source_dictionary, task.target_dictionary
 
         def build_embedding(dictionary, embed_dim):
@@ -403,10 +422,12 @@ class Wav2Vec2Seq2SeqModel(FairseqEncoderDecoderModel):
         if cfg.pretrained_ckpt:
             # remove the pre-trained embedding
             logger.info("updating pretrained weights")
-            del ckpt['model']['decoder.embed_tokens.weight']
-            missing_keys, unexpected_keys = model.load_state_dict(ckpt['model'], strict=False)
-            logger.info(f'missing: {missing_keys}')
-            logger.info(f'unexpected: {unexpected_keys}')
+            del ckpt["model"]["decoder.embed_tokens.weight"]
+            missing_keys, unexpected_keys = model.load_state_dict(
+                ckpt["model"], strict=False
+            )
+            logger.info(f"missing: {missing_keys}")
+            logger.info(f"unexpected: {unexpected_keys}")
 
         return model
 
@@ -427,7 +448,7 @@ class Wav2Vec2Seq2SeqModel(FairseqEncoderDecoderModel):
                     # already set, skip it
                     break
                 p.requires_grad = ft
-                
+
         decoder_out = self.decoder(encoder_out=encoder_out, **kwargs)
         return decoder_out
 
@@ -457,7 +478,7 @@ class Wav2VecCtcSeq2Seq(Wav2Vec2Seq2SeqModel):
 
     def forward_ctc(self, encoder_out):
         return self.ctc_proj(encoder_out["encoder_out"])
-        
+
     # def get_normalized_probs(self, net_output, log_probs, sample=None):
     #     """Get normalized probabilities (or log probs) from a net's output."""
     #     # if sample is not None:
@@ -474,10 +495,11 @@ class Wav2VecCtcSeq2Seq(Wav2Vec2Seq2SeqModel):
         padding = net_output["padding_mask"]
         if padding is not None and padding.any():
             padding = padding.T
-            logits[padding][...,0] = 0
-            logits[padding][...,1:] = float('-inf')
+            logits[padding][..., 0] = 0
+            logits[padding][..., 1:] = float("-inf")
 
         return logits
+
 
 class Wav2VecEncoder(FairseqEncoder):
     def __init__(self, cfg: Wav2Vec2AsrConfig, output_size=None):
@@ -527,7 +549,7 @@ class Wav2VecEncoder(FairseqEncoder):
         model = task.build_model(w2v_args.model)
 
         if state is not None and not cfg.no_pretrained_weights:
-            logger.info(f'initializing with the pretrained weights in {cfg.w2v_path}')
+            logger.info(f"initializing with the pretrained weights in {cfg.w2v_path}")
             model.load_state_dict(state["model"], strict=True)
 
         model.remove_pretraining_modules()
@@ -539,7 +561,7 @@ class Wav2VecEncoder(FairseqEncoder):
         d = w2v_args.model.encoder_embed_dim
 
         self.w2v_model = model
-        if hasattr(model, 'output_dim'):
+        if hasattr(model, "output_dim"):
             d = model.output_dim
 
         self.final_dropout = nn.Dropout(cfg.final_dropout)
@@ -604,7 +626,9 @@ class Wav2VecEncoder(FairseqEncoder):
         return {
             "encoder_out": x,  # T x B x C
             "padding_mask": padding_mask,  # B x T,
-            "layer_results": res["layer_results"] if isinstance(res, dict) and "layer_results" in res else None,
+            "layer_results": res["layer_results"]
+            if isinstance(res, dict) and "layer_results" in res
+            else None,
             "mask_indices": mask_indices,
         }
 
@@ -620,9 +644,9 @@ class Wav2VecEncoder(FairseqEncoder):
                 1, new_order
             )
         if encoder_out["padding_mask"] is not None:
-            encoder_out["padding_mask"] = encoder_out[
-                "padding_mask"
-            ].index_select(0, new_order)
+            encoder_out["padding_mask"] = encoder_out["padding_mask"].index_select(
+                0, new_order
+            )
         return encoder_out
 
     def max_positions(self):
@@ -722,14 +746,15 @@ class TransformerDecoder(FairseqIncrementalDecoder):
             self.layer_norm = LayerNorm(embed_dim)
         else:
             self.layer_norm = None
-        
+
         if cfg.use_squared_relu:
             for layer in self.layers:
-                assert hasattr(layer, 'activation_fn')
+                assert hasattr(layer, "activation_fn")
                 layer.activation_fn = lambda x: F.relu(x).pow_(2)
 
         if cfg.use_mdha:
             from wav2seq.modules.mdha import MultiDconvHeadAttention
+
             def mha2mdha(attn):
                 return MultiDconvHeadAttention(
                     embed_dim=attn.embed_dim,
@@ -742,13 +767,12 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                     self_attention=attn.self_attention,
                     encoder_decoder_attention=attn.encoder_decoder_attention,
                 )
+
             for layer in self.layers:
-                assert hasattr(layer, 'activation_fn')
+                assert hasattr(layer, "activation_fn")
                 layer.self_attn = mha2mdha(layer.self_attn)
                 if layer.encoder_attn is not None:
                     layer.encoder_attn = mha2mdha(layer.encoder_attn)
-
-
 
     def forward(
         self, prev_output_tokens, encoder_out=None, incremental_state=None, **unused
@@ -831,7 +855,7 @@ class TransformerDecoder(FairseqIncrementalDecoder):
                     self_attn_mask=self.buffered_future_mask(x)
                     if incremental_state is None
                     else None,
-                    self_attn_padding_mask=self_attn_padding_mask
+                    self_attn_padding_mask=self_attn_padding_mask,
                 )
                 inner_states.append(x)
 

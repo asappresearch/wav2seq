@@ -21,7 +21,7 @@ from fairseq.modules import (
 EXTRACTOR_MODE_CHOICES = ChoiceEnum(["default", "layer_norm"])
 from einops.layers.torch import Rearrange
 
-from .squeeze_wav2vec2 import (SqueezeWav2Vec2Config, make_pad_mask)
+from .squeeze_wav2vec2 import SqueezeWav2Vec2Config, make_pad_mask
 from .feat_mlp_wav2vec2 import FeatMLPWav2Vec2Model
 
 
@@ -45,13 +45,13 @@ class SqueezeWav2Vec2DebertaConfig(SqueezeWav2Vec2Config):
     )
     position_biased_input: bool = field(
         default=False, metadata={"help": "max size of rel positional embedding"}
-    ) 
+    )
     pos_att_type: str = field(
         default="p2c|c2p", metadata={"help": "max size of rel positional embedding"}
-    ) 
+    )
     position_buckets: int = field(
         default=256, metadata={"help": "max size of rel positional embedding"}
-    ) 
+    )
     initializer_range: float = field(
         default=0.02, metadata={"help": "initialization range of bert"}
     )
@@ -81,6 +81,7 @@ class SqueezeWav2Vec2DebertaModel(FeatMLPWav2Vec2Model):
     def __init__(self, cfg: SqueezeWav2Vec2DebertaConfig):
         super().__init__(cfg)
         self.encoder = SqueezeDebertaEncoder(cfg)
+
 
 class SqueezeDebertaEncoder(nn.Module):
     def __init__(self, cfg: SqueezeWav2Vec2DebertaConfig):
@@ -117,10 +118,14 @@ class SqueezeDebertaEncoder(nn.Module):
 
         self.encoder = deberta.bert.BertEncoder(deberta_cfg)
         if cfg.cross_layer_param_share:
-            self.encoder.layer = LayerDropModuleList(cfg.encoder_layerdrop, [self.encoder.layer[0]] * len(self.encoder.layer))
+            self.encoder.layer = LayerDropModuleList(
+                cfg.encoder_layerdrop, [self.encoder.layer[0]] * len(self.encoder.layer)
+            )
         else:
-            self.encoder.layer = LayerDropModuleList(cfg.encoder_layerdrop, [l for l in self.encoder.layer])
-        
+            self.encoder.layer = LayerDropModuleList(
+                cfg.encoder_layerdrop, [l for l in self.encoder.layer]
+            )
+
         # squeezing
         self.pos_conv = self.get_pos_conv(cfg.squeeze_factor)
         self.pool = nn.AvgPool1d(cfg.squeeze_factor, cfg.squeeze_factor)
@@ -136,7 +141,9 @@ class SqueezeDebertaEncoder(nn.Module):
             stride=squeeze_factor,
         )
         dropout = 0
-        std = math.sqrt((4 * (1.0 - dropout)) / (self.cfg.conv_pos * self.embedding_dim))
+        std = math.sqrt(
+            (4 * (1.0 - dropout)) / (self.cfg.conv_pos * self.embedding_dim)
+        )
         nn.init.normal_(pos_conv.weight, mean=0, std=std)
         nn.init.constant_(pos_conv.bias, 0)
 
@@ -146,11 +153,13 @@ class SqueezeDebertaEncoder(nn.Module):
 
     def get_upsample(self, squeeze_factor: int):
         upsample = nn.Linear(self.embedding_dim, self.embedding_dim * squeeze_factor)
-        nn.init.kaiming_normal_(upsample.weight, mode='fan_out', nonlinearity='relu')
+        nn.init.kaiming_normal_(upsample.weight, mode="fan_out", nonlinearity="relu")
         nn.init.zeros_(upsample.bias)
         upsample = nn.Sequential(
-            upsample, nn.GELU(),
-            Rearrange('b t (s c) -> b (t s) c', s=squeeze_factor, c=self.embedding_dim))
+            upsample,
+            nn.GELU(),
+            Rearrange("b t (s c) -> b (t s) c", s=squeeze_factor, c=self.embedding_dim),
+        )
         return upsample
 
     def forward(self, x, padding_mask=None, layer=None):
@@ -161,24 +170,26 @@ class SqueezeDebertaEncoder(nn.Module):
         T = x.shape[1]
 
         # down sample
-        x = x.transpose(1, 2) # (B, T, C) to (B, C, T)
+        x = x.transpose(1, 2)  # (B, T, C) to (B, C, T)
         x_conv = self.pos_conv(x)
         x_pool = self.pool(x)
         min_length = min(x_conv.size(-1), x_pool.size(-1))
-        x = (x_pool[...,:min_length] + x_conv[...,:min_length]).transpose(1, 2) # back to (B, T, C)
-        
+        x = (x_pool[..., :min_length] + x_conv[..., :min_length]).transpose(
+            1, 2
+        )  # back to (B, T, C)
+
         if padding_mask is None:
             attention_mask = torch.ones(x.shape[:2], dtype=torch.long, device=x.device)
-        else :
+        else:
             input_lengths = (1 - padding_mask.long()).sum(-1)
             # apply conv formula to get real output_lengths
             output_lengths = input_lengths // self.cfg.squeeze_factor
-            padding_mask = make_pad_mask(output_lengths).to(x.device) # 1 at padding
+            padding_mask = make_pad_mask(output_lengths).to(x.device)  # 1 at padding
             attention_mask = padding_mask.eq(0).long()
 
         layer_results = self.encoder(x, attention_mask=attention_mask)
         if isinstance(layer_results, dict):
-            layer_results = layer_results['hidden_states']
+            layer_results = layer_results["hidden_states"]
         if layer is None:
             x = layer_results[-1]
         else:

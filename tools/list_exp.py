@@ -16,7 +16,7 @@ from colorama import Fore
 def get_num_updates(folder):
     num_updates = 0
     try:
-        with open(os.path.join(folder, 'hydra_train.log')) as f:
+        with open(os.path.join(folder, "hydra_train.log")) as f:
             lines = [line.strip() for line in f][-50:]
             for line in lines:
                 try:
@@ -32,6 +32,7 @@ def get_num_updates(folder):
     except:
         return 0
 
+
 def print_folder(folder, total_updates):
     num_updates = get_num_updates(folder)
     if num_updates >= total_updates:
@@ -40,11 +41,12 @@ def print_folder(folder, total_updates):
         color = Fore.RED
     print(f"{folder}\t{color}{num_updates}{Fore.RESET}")
 
+
 def main(root="exp-bu", total_updates=100_000):
     exp_dirs = set()
     match_names = set()
     for dirname, dirs, files in tqdm(os.walk(root)):
-        if 'checkpoints' in dirs:
+        if "checkpoints" in dirs:
             exp_dirs.add(dirname)
     exp_dirs = sorted(exp_dirs)
 
@@ -62,6 +64,7 @@ def main(root="exp-bu", total_updates=100_000):
     print("\nNot evaluated:")
     for folder in not_evaled:
         print_folder(folder, total_updates)
+
 
 if __name__ == "__main__":
     fire.Fire(main)

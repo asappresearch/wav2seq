@@ -218,11 +218,10 @@ class FeatMLPWav2Vec2Config(FairseqDataclass):
             "can be tuple of 3 values (start, end, decay)"
         },
     )
-    
+
     # mlp
     use_mlp: bool = field(
-        default=False,
-        metadata={"help": "use MLP head"},
+        default=False, metadata={"help": "use MLP head"},
     )
     mlp_version: str = field(
         default="v1", metadata={"help": "version of mlp"},
@@ -234,32 +233,25 @@ class FeatMLPWav2Vec2Config(FairseqDataclass):
         default=4096, metadata={"help": "hidden size in mlp"},
     )
     mlp_act_type: str = field(
-        default='relu', metadata={"help": "activation type in mlp"},
+        default="relu", metadata={"help": "activation type in mlp"},
     )
     proj_mlp_norm_type: str = field(
-        default="in",
-        metadata={"help": "normalization method in the MLP"},
+        default="in", metadata={"help": "normalization method in the MLP"},
     )
     share_final_proj: bool = field(
-        default=False,
-        metadata={"help": "share the last linear layer of projection"},
+        default=False, metadata={"help": "share the last linear layer of projection"},
     )
     final_proj_momentum: float = field(
         default=-1.0,
         metadata={"help": "momentum used when using a momentum projector"},
     )
-    
+
     # feature
     spec_feature_only: bool = field(
-        default=False,
-        metadata={"help": "only use spectrogram features (fbank / MFCC)"}
+        default=False, metadata={"help": "only use spectrogram features (fbank / MFCC)"}
     )
-    fbank_dim: int = field(
-        default=II("task.fbank_dim"),
-    )
-    mfcc_dim: int = field(
-        default=II("task.mfcc_dim"),
-    )
+    fbank_dim: int = field(default=II("task.fbank_dim"),)
+    mfcc_dim: int = field(default=II("task.mfcc_dim"),)
     conv_hidden_sizes: str = field(
         default="[32, 32]", metadata={"help": "hidden size of conv2d"}
     )
@@ -276,10 +268,16 @@ class FeatMLPWav2Vec2Config(FairseqDataclass):
         default=False, metadata={"help": "use padding in conv2d"}
     )
     encoder_input_embed_dim: int = field(
-        default=-1, metadata={"help": "dim of the inputs of the contextual network (the same as encoder_embed_dim if <= 0)"}
+        default=-1,
+        metadata={
+            "help": "dim of the inputs of the contextual network (the same as encoder_embed_dim if <= 0)"
+        },
     )
     conv_flatten_dim: int = field(
-        default=-1, metadata={"help": "dim of the flattened spec features (the same as encoder_input_embed_dim if <= 0)"}
+        default=-1,
+        metadata={
+            "help": "dim of the flattened spec features (the same as encoder_input_embed_dim if <= 0)"
+        },
     )
     subsample_type: str = field(
         default="conv2dv4", metadata={"help": "subsample module type"}
@@ -291,7 +289,8 @@ class FeatMLPWav2Vec2Config(FairseqDataclass):
         default="relu", metadata={"help": "subsample activation type"}
     )
     conv_kaiming_init: bool = field(
-        default=False, metadata={"help": "use kaiming_normal init for subsampling layers"}
+        default=False,
+        metadata={"help": "use kaiming_normal init for subsampling layers"},
     )
     feature_extractor_type: str = field(
         default="default", metadata={"help": "name of the wav feature extractor"}
@@ -302,9 +301,17 @@ class FeatMLPWav2Vec2Config(FairseqDataclass):
 
 
 class MLP(nn.Module):
-    def __init__(self, dim: int, projection_size: int, hidden_size: int = 4096, norm_type: str = 'in'):
+    def __init__(
+        self,
+        dim: int,
+        projection_size: int,
+        hidden_size: int = 4096,
+        norm_type: str = "in",
+    ):
         super().__init__()
-        self.fc1 = nn.Linear(dim, hidden_size, bias=norm_type == "none") # bias term will be removed by norm
+        self.fc1 = nn.Linear(
+            dim, hidden_size, bias=norm_type == "none"
+        )  # bias term will be removed by norm
         if norm_type == "in":
             self.norm = Fp32GroupNorm(hidden_size, hidden_size, affine=True)
         elif norm_type == "bn":
@@ -322,7 +329,7 @@ class MLP(nn.Module):
 
     def forward(self, x):
         x = self.fc1(x)
-        x = x.transpose(1, 2) # B x T x C to B x C x T
+        x = x.transpose(1, 2)  # B x T x C to B x C x T
         x = self.act(self.norm(x))
         x = x.transpose(1, 2)
         x = self.fc2(x)
@@ -347,7 +354,9 @@ class FeatMLPWav2Vec2Model(BaseFairseqModel):
 
         self.spec_feature_dim = cfg.fbank_dim + cfg.mfcc_dim
         if self.spec_feature_dim > 0:
-            assert cfg.conv_flatten_dim == self.embed, f"{cfg.conv_flatten_dim} != {self.embed}"
+            assert (
+                cfg.conv_flatten_dim == self.embed
+            ), f"{cfg.conv_flatten_dim} != {self.embed}"
             self.spec_feature_extractor = self.build_spec_feature_extractor(cfg)
         else:
             self.spec_feature_extractor = None
@@ -456,9 +465,9 @@ class FeatMLPWav2Vec2Model(BaseFairseqModel):
                     self.final_proj = self.project_q
                 else:
                     # don't share the first layer
-                    if cfg.mlp_version == 'v1':
+                    if cfg.mlp_version == "v1":
                         self.final_proj.fc2 = self.project_q.fc2
-                    elif cfg.mlp_version in {'v2', 'v3'}:
+                    elif cfg.mlp_version in {"v2", "v3"}:
                         for i in range(3, len(self.final_proj.net)):
                             self.final_proj.net[i] = self.project_q.net[i]
                     else:
@@ -467,7 +476,7 @@ class FeatMLPWav2Vec2Model(BaseFairseqModel):
             self.final_proj = nn.Linear(cfg.encoder_embed_dim, final_dim)
 
         self.final_proj_momentum = cfg.final_proj_momentum
-        if cfg.final_proj_momentum >= 0.:
+        if cfg.final_proj_momentum >= 0.0:
             assert not cfg.share_final_proj
             self.initialize_momentum()
 
@@ -484,19 +493,29 @@ class FeatMLPWav2Vec2Model(BaseFairseqModel):
 
     def build_mlp(self, input_dim, output_dim):
         cfg = self.cfg
-        if cfg.mlp_version == 'v1':
-            return MLP(input_dim, output_dim, hidden_size=cfg.mlp_hidden_size,
-                       norm_type=cfg.proj_mlp_norm_type)
-        elif cfg.mlp_version == 'v2':
+        if cfg.mlp_version == "v1":
+            return MLP(
+                input_dim,
+                output_dim,
+                hidden_size=cfg.mlp_hidden_size,
+                norm_type=cfg.proj_mlp_norm_type,
+            )
+        elif cfg.mlp_version == "v2":
             return MLPv2(
-                input_dim, output_dim, hidden_dim=cfg.mlp_hidden_size,
-                num_layers=cfg.mlp_num_layers, norm_type=cfg.proj_mlp_norm_type,
+                input_dim,
+                output_dim,
+                hidden_dim=cfg.mlp_hidden_size,
+                num_layers=cfg.mlp_num_layers,
+                norm_type=cfg.proj_mlp_norm_type,
                 act_type=cfg.mlp_act_type,
             )
-        elif cfg.mlp_version == 'v3':
+        elif cfg.mlp_version == "v3":
             return MLPv3(
-                input_dim, output_dim, hidden_dim=cfg.mlp_hidden_size,
-                num_layers=cfg.mlp_num_layers, norm_type=cfg.proj_mlp_norm_type,
+                input_dim,
+                output_dim,
+                hidden_dim=cfg.mlp_hidden_size,
+                num_layers=cfg.mlp_num_layers,
+                norm_type=cfg.proj_mlp_norm_type,
                 act_type=cfg.mlp_act_type,
             )
         else:
@@ -504,7 +523,7 @@ class FeatMLPWav2Vec2Model(BaseFairseqModel):
 
     @torch.no_grad()
     def initialize_momentum(self):
-        if self.final_proj_momentum < 0.:
+        if self.final_proj_momentum < 0.0:
             if self.qk_same_dim:
                 src, tgt = self.final_proj, self.project_q
             else:
@@ -515,21 +534,21 @@ class FeatMLPWav2Vec2Model(BaseFairseqModel):
 
     @torch.no_grad()
     def update_momentum(self):
-        if self.final_proj_momentum >= 0. and self.training:
+        if self.final_proj_momentum >= 0.0 and self.training:
             if self.qk_same_dim:
                 src, tgt = self.final_proj, self.project_q
             else:
                 src, tgt = self.final_proj.fc2, self.project_q.fc2
-            
+
             m = self.final_proj_momentum
             for ps, pt in zip(src.parameters(), tgt.parameters()):
                 dtype = pt.dtype
-                new_p = pt.data.float().mul_(m).add_(ps.data.float(), alpha=1. - m)
+                new_p = pt.data.float().mul_(m).add_(ps.data.float(), alpha=1.0 - m)
                 pt.data.copy_(new_p.to(dtype))
 
     def set_num_updates(self, num_updates):
         """Set the number of parameters updates."""
-        if num_updates != getattr(self, 'num_updates', -1):
+        if num_updates != getattr(self, "num_updates", -1):
             self.update_momentum()
         self.num_updates = num_updates
         super().set_num_updates(num_updates)
@@ -658,12 +677,23 @@ class FeatMLPWav2Vec2Model(BaseFairseqModel):
         conv_cfg_list = eval(self.cfg.conv_feature_layers)
 
         for i in range(len(conv_cfg_list)):
-            input_lengths = _conv_out_length(input_lengths, conv_cfg_list[i][1], conv_cfg_list[i][2])
+            input_lengths = _conv_out_length(
+                input_lengths, conv_cfg_list[i][1], conv_cfg_list[i][2]
+            )
 
         return input_lengths.to(torch.long)
 
-    def forward(self, source, padding_mask=None, audio_feats=None, mask=True, features_only=False,
-                embed_inputs=False, before_context=False, layer=None):
+    def forward(
+        self,
+        source,
+        padding_mask=None,
+        audio_feats=None,
+        mask=True,
+        features_only=False,
+        embed_inputs=False,
+        before_context=False,
+        layer=None,
+    ):
 
         if embed_inputs:
             features = source
@@ -677,7 +707,7 @@ class FeatMLPWav2Vec2Model(BaseFairseqModel):
                     with torch.no_grad():
                         features = self.feature_extractor(source)
 
-                features = features.transpose(1, 2) # B x T x C
+                features = features.transpose(1, 2)  # B x T x C
             else:
                 features = None
 
@@ -686,15 +716,23 @@ class FeatMLPWav2Vec2Model(BaseFairseqModel):
                 if self.feature_grad_mult > 0:
                     spec_features = self.spec_feature_extractor(audio_feats)
                     if self.feature_grad_mult != 1.0:
-                        spec_features = GradMultiply.apply(spec_features, self.feature_grad_mult)
-                    features = spec_features if features is None else features + spec_features
+                        spec_features = GradMultiply.apply(
+                            spec_features, self.feature_grad_mult
+                        )
+                    features = (
+                        spec_features if features is None else features + spec_features
+                    )
                 else:
                     with torch.no_grad():
                         spec_features = self.spec_feature_extractor(audio_feats)
-                        features = spec_features if features is None else features + spec_features
+                        features = (
+                            spec_features
+                            if features is None
+                            else features + spec_features
+                        )
 
         features_pen = features.float().pow(2).mean()
-        
+
         features = self.layer_norm(features)
         unmasked_features = features.clone()
 
@@ -809,7 +847,7 @@ class FeatMLPWav2Vec2Model(BaseFairseqModel):
             result["temp"] = curr_temp
 
         return result
-    
+
     def quantize(self, x):
         assert self.quantizer is not None
         x = self.feature_extractor(x)
@@ -817,10 +855,25 @@ class FeatMLPWav2Vec2Model(BaseFairseqModel):
         x = self.layer_norm(x)
         return self.quantizer.forward_idx(x)
 
-    def extract_features(self, source, padding_mask, audio_feats=None, mask=False, embed_inputs=False, layer=None):
-        res = self.forward(source, padding_mask, audio_feats=audio_feats, mask=mask, features_only=True, embed_inputs=embed_inputs, layer=layer)
+    def extract_features(
+        self,
+        source,
+        padding_mask,
+        audio_feats=None,
+        mask=False,
+        embed_inputs=False,
+        layer=None,
+    ):
+        res = self.forward(
+            source,
+            padding_mask,
+            audio_feats=audio_feats,
+            mask=mask,
+            features_only=True,
+            embed_inputs=embed_inputs,
+            layer=layer,
+        )
         return res
-
 
     def get_logits(self, net_output):
         logits = net_output["x"]
@@ -853,9 +906,10 @@ class FeatMLPWav2Vec2Model(BaseFairseqModel):
         self.final_proj = None
 
     def build_feature_extractor(self, cfg):
-        if cfg.feature_extractor_type == 'default':
+        if cfg.feature_extractor_type == "default":
             # from fairseq.models.wav2vec.wav2vec2 import ConvFeatureExtractionModel
             from ..modules.wav_extracter import ConvFeatureExtractionModelV2
+
             feature_enc_layers = eval(cfg.conv_feature_layers)
             extractor_output_dim = feature_enc_layers[-1][0]
             feature_extractor = ConvFeatureExtractionModelV2(
@@ -869,14 +923,16 @@ class FeatMLPWav2Vec2Model(BaseFairseqModel):
         return feature_extractor, extractor_output_dim
 
     def build_spec_feature_extractor(self, cfg):
-        if cfg.subsample_type == 'conv2d':
+        if cfg.subsample_type == "conv2d":
             # remove from SEW open source
             raise NotImplementedError
         else:
             raise ValueError(f"subsample_type={cfg.subsample_type}")
         return spec_feature_extractor
-        
+
     def extra_repr(self):
-        print_attrs = [k for k in self.__dict__ if "mask" in k or "drop" in k] + ["feature_grad_mult"]
+        print_attrs = [k for k in self.__dict__ if "mask" in k or "drop" in k] + [
+            "feature_grad_mult"
+        ]
         s = ", ".join([f"{k}={{{k}}}" for k in print_attrs])
         return s.format(**self.__dict__)

@@ -20,6 +20,7 @@ from fairseq.modules.unfold import unfold1d
 from einops import rearrange
 from einops.layers.torch import Rearrange
 
+
 @with_incremental_state
 class MultiDconvHeadAttention(nn.Module):
     """Multi-DConv-headed attention.
@@ -75,11 +76,18 @@ class MultiDconvHeadAttention(nn.Module):
                 #           padding=kernel_size // 2, groups=embed_dim),
                 # Rearrange('b c t -> t b c '),
                 LightweightConv1dTBC(
-                    embed_dim, kernel_size=kernel_size, padding_l=kernel_size - 1, num_heads=embed_dim,
-                    weight_dropout=0.0, weight_softmax=False,
-                    bias=True, unfold=True,
+                    embed_dim,
+                    kernel_size=kernel_size,
+                    padding_l=kernel_size - 1,
+                    num_heads=embed_dim,
+                    weight_dropout=0.0,
+                    weight_softmax=False,
+                    bias=True,
+                    unfold=True,
                 ),
-            ), q_noise, qn_block_size
+            ),
+            q_noise,
+            qn_block_size,
         )
         self.v_proj = quant_noise(
             nn.Sequential(
@@ -89,11 +97,18 @@ class MultiDconvHeadAttention(nn.Module):
                 #           padding=kernel_size // 2, groups=embed_dim),
                 # Rearrange('b c t -> t b c '),
                 LightweightConv1dTBC(
-                    embed_dim, kernel_size=kernel_size, padding_l=kernel_size - 1, num_heads=embed_dim,
-                    weight_dropout=0.0, weight_softmax=False,
-                    bias=True, unfold=True,
+                    embed_dim,
+                    kernel_size=kernel_size,
+                    padding_l=kernel_size - 1,
+                    num_heads=embed_dim,
+                    weight_dropout=0.0,
+                    weight_softmax=False,
+                    bias=True,
+                    unfold=True,
                 ),
-            ), q_noise, qn_block_size
+            ),
+            q_noise,
+            qn_block_size,
         )
         self.q_proj = quant_noise(
             nn.Sequential(
@@ -103,11 +118,18 @@ class MultiDconvHeadAttention(nn.Module):
                 #           padding=kernel_size // 2, groups=embed_dim),
                 # Rearrange('b c t -> t b c '),
                 LightweightConv1dTBC(
-                    embed_dim, kernel_size=kernel_size, padding_l=kernel_size - 1, num_heads=embed_dim,
-                    weight_dropout=0.0, weight_softmax=False,
-                    bias=True, unfold=True
+                    embed_dim,
+                    kernel_size=kernel_size,
+                    padding_l=kernel_size - 1,
+                    num_heads=embed_dim,
+                    weight_dropout=0.0,
+                    weight_softmax=False,
+                    bias=True,
+                    unfold=True,
                 ),
-            ), q_noise, qn_block_size
+            ),
+            q_noise,
+            qn_block_size,
         )
 
         self.out_proj = quant_noise(
@@ -646,18 +668,23 @@ class LightweightConv1dTBC(nn.Module):
             weight = weight[:, -x_unfold.size(2) :]
             K = weight.size(1)
             weight = (
-                weight.view(1, H, K).expand(T * B, H, K).contiguous().view(T * B * H, K, 1)
+                weight.view(1, H, K)
+                .expand(T * B, H, K)
+                .contiguous()
+                .view(T * B * H, K, 1)
             )
             weight = self.weight_dropout_module(weight)
             output = torch.bmm(x_unfold, weight)  # T*B*H x R x 1
             output = output.view(T, B, C)
         else:
             # unfold the input: T x B x C --> B x C x T'
-            x_pad = F.pad(rearrange(x, 't b c -> b c t'), (self.padding_l, K - self.padding_l - 1))
+            x_pad = F.pad(
+                rearrange(x, "t b c -> b c t"), (self.padding_l, K - self.padding_l - 1)
+            )
             weight = weight.view(H, 1, K).repeat(R, 1, 1)
             weight = self.weight_dropout_module(weight)
             output = F.conv1d(x_pad, weight, groups=C)
-            output = rearrange(output, 'b c t -> t b c')
+            output = rearrange(output, "b c t -> t b c")
 
         return output
 
