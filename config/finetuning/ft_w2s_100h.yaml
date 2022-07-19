@@ -44,7 +44,7 @@ criterion:
   # post_process: sentencepiece
 
 optimization:
-  max_update: 20000
+  max_update: 80000
   lr: [5e-5]
   sentence_avg: true
   update_freq: [1]
@@ -56,7 +56,7 @@ optimizer:
 
 lr_scheduler:
   _name: tri_stage
-  phase_ratio: [0.1, 0.4, 0.5]
+  phase_ratio: [0.025, 0.475, 0.5]
   final_lr_scale: 0.05
 
 model:
@@ -107,5 +107,6 @@ model:
       encoder_ffn_embed_dim: 1024
       encoder_layers: 6
       conv_feature_layers: '[(128, 10, 5)] + [(256, 3, 2)] * 2 + [(512, 3, 2)] * 2 + [(1024, 2, 2)] * 2'
+
 
 

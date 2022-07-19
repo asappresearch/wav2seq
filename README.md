@@ -3,6 +3,8 @@
 [![made-with-python](https://img.shields.io/badge/Made%20with-Python-red.svg)](#python)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+**Authors:**: Felix Wu, Kwangyoun Kim, Shinji Watanabe, Kyu Han, Ryan McDonald, Kilian Q. Weinberger, Yoav Artzi
+
 Paper link: [https://arxiv.org/abs/2205.01086](https://arxiv.org/abs/2205.01086?context=cs)
 
 # Usage
@@ -60,7 +62,19 @@ bash scripts/pl/create-hubert-pseudo-language.sh labels/hubert_base-l9-k2s2-fp16
 bash scripts/wav2seq-pt.sh wav2seq-hubert-base-ls960
 ```
 
-## Fine-tuning Wav2Seq
+## Fine-tuning Wav2Seq on LibriSpeech
+
+To fine-tune a pretrained checkpoint on librispeech with 10h data. Please use this command.
+```sh
+bash scripts/wav2seq-ft-ls.sh $pretrained_ckpt ft-ls-10h
+```
+where `$pretrained_ckpt` is your pretrained checkpoint.
+
+With 100h supervised data, please use this command.
+```sh
+bash scripts/wav2seq-ft-ls.sh $pretrained_ckpt ft-ls-100h
+```
+Please make sure that your manifest files are stored in `manifest/librispeech`.
 
 # Pre-trained Models
-Our pretrained models will be released.
+Our pre-trained models will be released.
