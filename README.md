@@ -14,7 +14,7 @@ Model | Pre-training updates | Dataset | Link
 Wav2Seq (from HuBERT-base) | 400K + 25K | LibriSpeech 960h | [Download](https://public-dataset-model-store.awsdev.asapp.com/fwu/wav2seq/public/pt/wav2seq-hubert-base-25k.pt)
 Wav2Seq (from HuBERT-base) | 400K + 100K | LibriSpeech 960h | [Download](https://public-dataset-model-store.awsdev.asapp.com/fwu/wav2seq/public/pt/wav2seq-hubert-base-100k.pt)
 Wav2Seq (from HuBERT-large) | 400K + 25K | LibriLight 60Kh | [Download](https://public-dataset-model-store.awsdev.asapp.com/fwu/wav2seq/public/pt/wav2seq-hubert-large-25k.pt)
-Wav2Seq (from XLS-R 0.3B) | 400K + 25K | MultiLibriLight 60Kh | [Download](https://public-dataset-model-store.awsdev.asapp.com/fwu/wav2seq/public/pt/wav2seq-xlsr-300m-25k.pt)
+Wav2Seq (from XLS-R 0.3B) | 400K + 25K | XLS-R multi-lingual corpus 436Kh -> LibriLight 60Kh | [Download](https://public-dataset-model-store.awsdev.asapp.com/fwu/wav2seq/public/pt/wav2seq-xlsr-300m-25k.pt)
 
 ### Fine-tuned Models
 Model | Pre-training updates | Finetuning split | Link
