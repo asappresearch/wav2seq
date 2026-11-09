@@ -4,11 +4,11 @@ import fire
 
 def main(input, output, thres=0):
     counter = Counter()
-    with open(input) as f:
+    with open(input, encoding="utf-8") as f:
         for line in f:
             counter.update(line.strip().split())
 
-    with open(output, "w") as f:
+    with open(output, "w", encoding="utf-8") as f:
         for tok, count in counter.most_common():
             if count >= thres:
                 print(tok, count, file=f)
